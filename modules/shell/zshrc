@@ -1,0 +1,72 @@
+# COLOURS
+autoload -Uz colors && colors	
+
+# OPTIONS
+setopt autocd		# Automatically cd into typed directory.
+stty stop undef		# Disable ctrl-s to freeze terminal.
+setopt interactive_comments
+
+# PROMPT
+autoload -Uz vcs_info
+precmd() { vcs_info }
+zstyle ':vcs_info:git:*' formats 'on %F{magenta} %b%f'
+setopt prompt_subst
+NEWLINE=$'\n' # New line shortcut
+PROMPT='${NEWLINE}%B%F{cyan}%~%f%b %B${vcs_info_msg_0_}%b${NEWLINE}%B%(?.%F{green}.%F{red})➜ %f%b '
+RPROMPT="%n@%m [%*]"
+
+# VI MODE
+bindkey -v
+export KEYTIMEOUT=1
+# Use vim keys in tab complete menu:
+bindkey -M menuselect 'h' vi-backward-char
+bindkey -M menuselect 'k' vi-up-line-or-history
+bindkey -M menuselect 'l' vi-forward-char
+bindkey -M menuselect 'j' vi-down-line-or-history
+bindkey -v '^?' backward-delete-char
+# Change cursor shape for different vi modes.
+function zle-keymap-select () {
+    case $KEYMAP in
+        vicmd) echo -ne '\e[1 q';;      # block
+        viins|main) echo -ne '\e[5 q';; # beam
+    esac
+}
+zle -N zle-keymap-select
+zle-line-init() {
+    zle -K viins # initiate `vi insert` as keymap (can be removed if `bindkey -V` has been set elsewhere)
+    echo -ne "\e[5 q"
+}
+zle -N zle-line-init
+echo -ne '\e[5 q' # Use beam shape cursor on startup.
+preexec() { echo -ne '\e[5 q' ;} # Use beam shape cursor for each new prompt.
+# Edit line in vim with ctrl-e:
+autoload edit-command-line; zle -N edit-command-line
+bindkey '^e' edit-command-line
+bindkey -M vicmd '^[[P' vi-delete-char
+bindkey -M vicmd '^e' edit-command-line
+bindkey -M visual '^[[P' vi-delete
+bindkey -M viins '^R' fzf-history-widget
+bindkey -M vicmd '^R' fzf-history-widget
+
+# tat: tmux attach
+function tat {
+  # gets the name of the current directory and removes periods, which tmux doesn’t like.
+  name=$(basename `pwd` | sed -e 's/\.//g')
+
+  if tmux ls 2>&1 | grep "$name"; then
+    # if any session with the same name is open, it re-attaches to it.
+    tmux attach -t "$name"
+  elif [ -f .envrc ]; then
+    # otherwise, it checks if an .envrc file is present and starts a new tmux session using direnv exec.
+    direnv exec / tmux new-session -s "$name"
+  else
+    # otherwise, starts a new tmux session with that name.
+    tmux new-session -s "$name"
+  fi
+}
+
+eval $(/opt/homebrew/bin/brew shellenv)
+eval "$(direnv hook zsh)"
+
+# 1password-cli plugins
+source ~/.config/op/plugins.sh

@@ -1,0 +1,13 @@
+font-size = 14
+font-family = Monaspace Neon
+
+background-opacity = 0.95
+background-blur-radius = 20
+
+macos-option-as-alt = left
+mouse-hide-while-typing = true
+
+theme = tokyonight
+
+shell-integration = zsh
+command = "/etc/profiles/per-user/brendan/bin/zsh"
