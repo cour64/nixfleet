@@ -43,6 +43,7 @@ in
     "orbstack"
     "httpie"
     "hammerspoon"
+    "redis-insight"
   ];
   homebrew.onActivation.cleanup = "zap";
   homebrew.onActivation.autoUpdate = true;
