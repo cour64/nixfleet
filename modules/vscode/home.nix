@@ -21,6 +21,10 @@
           docker.docker
           asvetliakov.vscode-neovim
           naumovs.color-highlight
+          ms-python.python
+          charliermarsh.ruff
+          ms-pyright.pyright
+          editorconfig.editorconfig
         ];
         userSettings = {
           # Editor

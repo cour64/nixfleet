@@ -29,6 +29,10 @@ in
   ];
 
   homebrew.enable = true;
+  homebrew.brews = [
+    "bandcamp-dl"
+    "detox"
+  ];
   homebrew.casks = [
     "1password"
     "1password-cli"
@@ -42,8 +46,10 @@ in
     "dbeaver-community"
     "orbstack"
     "httpie"
-    "hammerspoon"
     "redis-insight"
+    "jetbrains-toolbox"
+    "adapter"
+    "cursor"
   ];
   homebrew.onActivation.cleanup = "zap";
   homebrew.onActivation.autoUpdate = true;
@@ -70,6 +76,7 @@ in
         ../modules/wezterm/home.nix
         ../modules/direnv/home.nix
         ../modules/darwin-core/home.nix
+        ../modules/nodejs/home.nix
         ../modules/awscli/home.nix
       ];
       fonts.fontconfig.enable = true;
@@ -86,6 +93,7 @@ in
       };
       home.preferXdgDirectories = true;
       xdg.enable = true;
+      programs.obsidian.enable = true;
       programs.home-manager.enable = true;
     };
     extraSpecialArgs = {
@@ -101,11 +109,19 @@ in
     pkgs.bashInteractive
     pkgs.zsh
   ];
-  environment.systemPackages = [ pkgs.coreutils ];
+  environment.systemPackages = with pkgs; [
+    coreutils
+    xcodes
+    yt-dlp
+    scdl
+    ffmpeg
+    nodejs
+  ];
   environment.pathsToLink = [
     "/opt/homebrew/bin" # Apple silicon
   ];
 
+  system.primaryUser = username;
   users.users."${username}" = {
     home = homeDir;
     description = username;
@@ -116,7 +132,7 @@ in
   system.keyboard.remapCapsLockToEscape = true;
   system.defaults = {
     dock = {
-      orientation = "left";
+      orientation = "bottom";
       autohide = true;
       magnification = false; # Enable dock icon magnification (false to disable)
       tilesize = 32; # Set the size of app icons
@@ -163,7 +179,7 @@ in
       AppleShowScrollBars = "Always";
       NSWindowResizeTime = 0.3;
       AppleFontSmoothing = 2;
-      _HIHideMenuBar = true;
+      _HIHideMenuBar = false;
     };
     universalaccess = {
       closeViewScrollWheelToggle = true;

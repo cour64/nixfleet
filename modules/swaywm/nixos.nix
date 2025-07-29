@@ -1,24 +1,8 @@
 { username, pkgs, ... }:
 {
-  environment.systemPackages = with pkgs; [
-    grim # screenshot functionality
-    slurp # screenshot functionality
-    wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
-    mako # notification system developed by swaywm maintainer
-    swaynag # error bar
-    swaybar # simple status bar
-    swaybg  # set wallpaper
-    wmenu # dmenu for wayland
-    ghostty # terminal emulator
-    xdg-utils # Set of command line tools that assist applications with a variety of desktop integration tasks
-  ];
-  
-  # Enable the gnome-keyring secrets vault. 
-  # Will be exposed through DBus to programs willing to store secrets.
-  services.gnome.gnome-keyring.enable = true;
-
-  hardware.opengl.enable = true;
-
+  programs.wayland.enable = true;
+  services.dbus.enable = true;
+  services.gnome-keyring.enable = true;
   security.polkit.enable = true;
   security.polkit.extraConfig = ''
     polkit.addRule(function (action, subject) {
@@ -36,24 +20,34 @@
     });
   '';
 
+  environment.systemPackages = with pkgs; [
+    grim # screenshot functionality
+    slurp # screenshot functionality
+    wl-clipboard # wl-copy and wl-paste for copy/paste from stdin / stdout
+    mako # notification system developed by swaywm maintainer
+    swaynag # error bar
+    swaybar # simple status bar
+    swaybg # set wallpaper
+    wmenu # dmenu for wayland
+    xdg-utils # Set of command line tools that assist applications with a variety of desktop integration tasks
+  ];
+
   # enable Sway window manager
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;
     extraPackages = [ ];
   };
-  
-  services.greetd = {                                                      
-    enable = true;                                                         
-    settings = {                                                           
-      default_session = {                                                  
+
+  services.greetd = {
+    enable = true;
+    settings = {
+      default_session = {
         command = "${pkgs.greetd.tuigreet}/bin/tuigreet --time --cmd sway";
-        user = username;                                                  
-      };                                                                   
-    };                                                                     
+        user = username;
+      };
+    };
   };
-  
-  services.dbus.enable = true;
 
   xdg.portal = {
     enable = true;

@@ -1,9 +1,9 @@
 { lib, pkgs, ... }:
 {
-  home.file.".hammerspoon" = {
-    source = ./hammerspoon;
-    recursive = true;
-  };
+  # home.file.".hammerspoon" = {
+  #   source = ./hammerspoon;
+  #   recursive = true;
+  # };
   # services.skhd = {
   #   enable = true;
   #   package = pkgs.skhd;
@@ -15,6 +15,16 @@
   #     cmd + shift - return : open -n -a "Firefox"
   #   '';
   # };
+  services.skhd = {
+    enable = true;
+    config = ''
+      # Application launchers
+      alt - h : open -a "Rider"
+      alt - g : open -a "WezTerm"
+      alt - y : open -a "Firefox"
+      alt - t : open -a "Microsoft Teams"
+    '';
+  };
   # home.activation = {
   #   # First, clean up any existing Home Manager Apps folder before anything else
   #   cleanUpPreLinkTargets = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''

@@ -103,6 +103,7 @@ in
         "update-workmac" = "darwin-rebuild switch --flake ~/nixfleet#workmac";
         "gs" = "git status";
         "ga" = "git add";
+        "gaa" = "git add .";
         "gc" = "git commit -m";
         "gp" = "git pull";
         "gr" = "git pull --rebase";
@@ -116,6 +117,7 @@ in
         "ll" = "eza -la";
         "la" = "eza -alRT --level 2";
         "less" = "bat";
+        "cat" = "bat";
       };
       plugins = [
         {
@@ -142,22 +144,22 @@ in
       newSession = false;
       prefix = "C-b";
       plugins = with pkgs; [
-        {
-          plugin = tmuxPlugins.resurrect;
-          extraConfig = ''
-            set -g @resurrect-strategy-vim 'session'
-            set -g @resurrect-strategy-nvim 'session'
-            set -g @resurrect-capture-pane-contents 'on'
-          '';
-        }
-        {
-          plugin = tmuxPlugins.continuum;
-          extraConfig = ''
-            set -g @continuum-restore 'on'
-            set -g @continuum-boot 'on'
-            set -g @continuum-save-interval '10'
-          '';
-        }
+        # {
+        #   plugin = tmuxPlugins.resurrect;
+        #   extraConfig = ''
+        #     set -g @resurrect-strategy-vim 'session'
+        #     set -g @resurrect-strategy-nvim 'session'
+        #     set -g @resurrect-capture-pane-contents 'on'
+        #   '';
+        # }
+        # {
+        #   plugin = tmuxPlugins.continuum;
+        #   extraConfig = ''
+        #     set -g @continuum-restore 'on'
+        #     set -g @continuum-boot 'on'
+        #     set -g @continuum-save-interval '10'
+        #   '';
+        # }
         tmuxPlugins.vim-tmux-navigator
         tmuxPlugins.fingers
         tmuxPlugins.tokyo-night-tmux
