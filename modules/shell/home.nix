@@ -1,19 +1,12 @@
 {
   pkgs,
   config,
-  lib,
   ...
 }:
 let
-  isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
-
-  opPathDarwin = "~/Library/Group\\ Containers/2BUA8C4S2C.com.1password/t/agent.sock";
-  opPathNixos = "~/.1password/agent.sock";
-  opPath = if isDarwin then opPathDarwin else opPathNixos;
-
-  opSshSignDarwin = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign";
-  opSshSignNixos = "${lib.getExe' pkgs._1password-gui "op-ssh-sign"}";
-  opSshSign = if isDarwin then opSshSignDarwin else opSshSignNixos;
+  opPath = "~/Library/Group\\ Containers/2BUA8C4S2C.com.1password/t/agent.sock";
+  opSshSign = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign";
+  updateCommand = "sudo darwin-rebuild switch --flake ~/nixfleet#workmac";
 in
 {
   home.packages = with pkgs; [
@@ -21,11 +14,26 @@ in
     wget
     curl
     jq
+    gum
+    neovim
   ];
 
   programs = {
     ssh = {
       enable = true;
+      enableDefaultConfig = false;
+      matchBlocks."*" = {
+        forwardAgent = false;
+        addKeysToAgent = "no";
+        compression = false;
+        serverAliveInterval = 0;
+        serverAliveCountMax = 3;
+        hashKnownHosts = false;
+        userKnownHostsFile = "~/.ssh/known_hosts";
+        controlMaster = "no";
+        controlPath = "~/.ssh/master-%r@%n:%p";
+        controlPersist = "no";
+      };
       extraConfig = ''
         IdentityAgent ${opPath}
       '';
@@ -33,12 +41,14 @@ in
 
     git = {
       enable = true;
-      userName = "Brendan de la Cour";
-      userEmail = "brendan.dlc@gmail.com";
-      aliases = {
-        prettylog = "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(r) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative";
-      };
-      extraConfig = {
+      settings = {
+        user = {
+          name = "Brendan de la Cour";
+          email = "brendan.delacour@se.com";
+        };
+        aliases = {
+          prettylog = "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(r) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative";
+        };
         branch.autosetuprebase = "always";
         color.ui = true;
         core.askPass = ""; # needs to be empty to use terminal for ask pass
@@ -56,20 +66,14 @@ in
           gpgsign = true;
         };
         user = {
-          signingKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJoUGfDKcUsxnBG1iHx57qcH9qGvuglqWWzLUTtZ/NHl";
+          signingKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPJa3S25gbOWCPHrB22QO1W4GrAMfqTGY3al6Y4q7JZP";
         };
       };
     };
 
     zsh = {
       enable = true;
-      envExtra = ''
-        EDITOR="nvim"
-        VISUAL="nvim"
-      '';
       autocd = true;
-      # defaultKeymap = "vicmd";
-      enableVteIntegration = true;
       autosuggestion = {
         enable = true;
       };
@@ -84,7 +88,7 @@ in
         compinit
         _comp_options+=(globdots)
       '';
-      dotDir = ".config/zsh";
+      dotDir = "${config.xdg.configHome}/zsh";
       history = {
         append = true;
         expireDuplicatesFirst = true;
@@ -100,7 +104,7 @@ in
       };
       shellAliases = {
         ".." = "cd ..";
-        "update-workmac" = "darwin-rebuild switch --flake ~/nixfleet#workmac";
+        "upos" = "git add . && nix flake update && git add . && ${updateCommand}";
         "gs" = "git status";
         "ga" = "git add";
         "gaa" = "git add .";
@@ -127,6 +131,12 @@ in
         }
       ];
       initContent = builtins.readFile ./zshrc;
+      envExtra = ''
+        if [[ ! -o interactive && -n "$WORKSPACE_CLI_ACTIVE" ]] && command -v workspace >/dev/null; then
+          compdef() { :; }
+          eval "$(workspace shell-init zsh 2>/dev/null)"
+        fi
+      '';
     };
 
     tmux = {
@@ -144,31 +154,12 @@ in
       newSession = false;
       prefix = "C-b";
       plugins = with pkgs; [
-        # {
-        #   plugin = tmuxPlugins.resurrect;
-        #   extraConfig = ''
-        #     set -g @resurrect-strategy-vim 'session'
-        #     set -g @resurrect-strategy-nvim 'session'
-        #     set -g @resurrect-capture-pane-contents 'on'
-        #   '';
-        # }
-        # {
-        #   plugin = tmuxPlugins.continuum;
-        #   extraConfig = ''
-        #     set -g @continuum-restore 'on'
-        #     set -g @continuum-boot 'on'
-        #     set -g @continuum-save-interval '10'
-        #   '';
-        # }
-        tmuxPlugins.vim-tmux-navigator
-        tmuxPlugins.fingers
-        tmuxPlugins.tokyo-night-tmux
-        {
-          plugin = tmuxPlugins.extrakto;
-          extraConfig = ''
-            set -g @extrakto_filter_order 'line'
-          '';
-        }
+        (tmuxPlugins.vim-tmux-navigator.overrideAttrs (old: {
+          env = lib.filterAttrs (_: v: !(builtins.isList v)) (old.env or { });
+        }))
+        (tmuxPlugins.tokyo-night-tmux.overrideAttrs (old: {
+          env = lib.filterAttrs (_: v: !(builtins.isList v)) (old.env or { });
+        }))
       ];
       extraConfig = ''
         bind-key x kill-pane
@@ -244,6 +235,7 @@ in
 
     eza = {
       enable = true;
+      enableZshIntegration = true;
       git = true;
       colors = "auto";
       icons = "auto";

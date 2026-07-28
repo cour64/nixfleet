@@ -2,7 +2,6 @@
   inputs,
   username,
   pkgs,
-  super,
   lib,
   ...
 }:
@@ -11,15 +10,11 @@ let
   homeDir = "/Users/${username}";
 in
 {
-  # imports = [
-  #   ../modules/aerospace/darwin.nix
-  # ];
-
   nix.settings.experimental-features = "nix-command flakes";
+  nix.optimise.automatic = true;
   nixpkgs.config.allowUnfree = true;
   nixpkgs.overlays = [
     inputs.nur.overlays.default
-    inputs.nix-vscode-extensions.overlays.default
   ];
   nixpkgs.hostPlatform = "aarch64-darwin"; # The platform the configuration will be used on.
 
@@ -30,26 +25,37 @@ in
 
   homebrew.enable = true;
   homebrew.brews = [
-    "bandcamp-dl"
     "detox"
+    "act"
+    "graphviz"
+    "pigz"
+    "pv"
+    "hostctl"
+    "plantuml"
+    "gh"
+    "pandoc"
   ];
   homebrew.casks = [
     "1password"
     "1password-cli"
     "the-unarchiver"
     "raycast"
-    "linear-linear"
     "firefox"
     "google-chrome"
     "discord"
     "imageoptim"
     "dbeaver-community"
     "orbstack"
-    "httpie"
-    "redis-insight"
-    "jetbrains-toolbox"
+    "httpie-desktop"
     "adapter"
     "cursor"
+    "cursor-cli"
+    "temurin"
+    "balenaetcher"
+    "knockknock"
+  ];
+  homebrew.taps = [
+    "guumaster/hostctl"
   ];
   homebrew.onActivation.cleanup = "zap";
   homebrew.onActivation.autoUpdate = true;
@@ -71,13 +77,10 @@ in
     users."${username}" = {
       imports = [
         ../modules/shell/home.nix
-        ../modules/vscode/home.nix
         ../modules/firefox/home.nix
         ../modules/wezterm/home.nix
         ../modules/direnv/home.nix
-        ../modules/darwin-core/home.nix
         ../modules/nodejs/home.nix
-        ../modules/awscli/home.nix
       ];
       fonts.fontconfig.enable = true;
       home.username = username;
@@ -87,7 +90,7 @@ in
         EDITOR = "nvim";
         VISUAL = "nvim";
         HOME = homeDir;
-        SHELL = pkgs.zsh;
+        SHELL = "${pkgs.zsh}/bin/zsh";
         LANG = "en_GB.UTF-8";
         LC_ALL = "en_GB.UTF-8";
       };
@@ -115,7 +118,6 @@ in
     yt-dlp
     scdl
     ffmpeg
-    nodejs
   ];
   environment.pathsToLink = [
     "/opt/homebrew/bin" # Apple silicon
@@ -181,16 +183,6 @@ in
       AppleFontSmoothing = 2;
       _HIHideMenuBar = false;
     };
-    universalaccess = {
-      closeViewScrollWheelToggle = true;
-      closeViewZoomFollowsFocus = true;
-      reduceTransparency = true;
-      reduceMotion = true;
-    };
-    # WindowManager = {
-    #   GloballyEnabled = false;
-    #   AppWindowGroupingBehavior = true;
-    # };
     SoftwareUpdate.AutomaticallyInstallMacOSUpdates = false;
     menuExtraClock.ShowSeconds = true;
     loginwindow.GuestEnabled = false;

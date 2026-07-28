@@ -2,7 +2,6 @@
 autoload -Uz colors && colors	
 
 # OPTIONS
-setopt autocd		# Automatically cd into typed directory.
 stty stop undef		# Disable ctrl-s to freeze terminal.
 setopt interactive_comments
 
@@ -66,7 +65,40 @@ function tat {
 }
 
 eval $(/opt/homebrew/bin/brew shellenv)
-eval "$(direnv hook zsh)"
+
+# globalias: expand global aliases when space is pressed
+# from https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/globalias/globalias.plugin.zsh
+globalias() {
+  # Get last word to the left of the cursor:
+  # (z) splits into words using shell parsing
+  # (A) makes it an array even if there's only one element
+  local word=${${(Az)LBUFFER}[-1]}
+  if [[ $GLOBALIAS_FILTER_VALUES[(Ie)$word] -eq 0 ]]; then
+    zle _expand_alias
+    zle expand-word
+  fi
+  zle self-insert
+}
+zle -N globalias
+
+# space expands all aliases, including global
+bindkey -M emacs " " globalias
+bindkey -M viins " " globalias
+
+# control-space to make a normal space
+bindkey -M emacs "^ " magic-space
+bindkey -M viins "^ " magic-space
+
+# normal space during searches
+bindkey -M isearch " " magic-space
 
 # 1password-cli plugins
 source ~/.config/op/plugins.sh
+
+# workspace CLI: init ws() after direnv sets WORKSPACE_CLI_ACTIVE
+_workspace_cli_init() {
+  if [[ -n "$WORKSPACE_CLI_ACTIVE" && -z "${functions[ws]}" ]]; then
+    eval "$(workspace shell-init zsh)"
+  fi
+}
+precmd_functions+=(_workspace_cli_init)
