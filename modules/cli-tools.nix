@@ -18,16 +18,12 @@
         fzf = {
           enable = true;
           enableZshIntegration = true;
-          changeDirWidget = {
-            command = "fd --type d";
-            options = [ "--preview 'tree -C {} | head -200'" ];
-          };
-          fileWidget = {
-            command = "fd --type f";
-            options = [
-              "--preview 'bat --style=numbers --color=always --line-range :500 {}'"
-            ];
-          };
+          changeDirWidgetCommand = "fd --type d";
+          changeDirWidgetOptions = [ "--preview 'tree -C {} | head -200'" ];
+          fileWidgetCommand = "fd --type f";
+          fileWidgetOptions = [
+            "--preview 'bat --style=numbers --color=always --line-range :500 {}'"
+          ];
           tmux.enableShellIntegration = true;
           defaultOptions = [
             "--highlight-line"
