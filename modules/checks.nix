@@ -28,6 +28,14 @@
           targetPkgs = import inputs.nixpkgs {
             system = targetSystem;
             config.allowUnfree = true;
+            overlays = [
+              (final: prev: {
+                unstable = import inputs.nixpkgs-unstable {
+                  inherit (prev) system;
+                  config.allowUnfree = true;
+                };
+              })
+            ];
           };
           hm = inputs.home-manager.lib.homeManagerConfiguration {
             pkgs = targetPkgs;
