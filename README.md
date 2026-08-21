@@ -1,0 +1,104 @@
+# nixfleet
+
+Dendritic Nix flake for Brendan's machines. Darwin is first-class today; shared
+Home Manager aspects also evaluate on Linux.
+
+## Structure
+
+- `flake.nix` — inputs and `flake-parts` + `import-tree` entrypoint
+- `modules/` — aspect modules auto-imported by `import-tree`
+  - `hosts/` — host composition (`workmac`)
+  - `users/` — user identity and Home Manager imports
+  - feature aspects (`zsh`, `git`, `ghostty`, `onepassword`, …)
+
+Paths containing `/_` are ignored by `import-tree`.
+
+## Rebuild (macOS)
+
+```bash
+sudo darwin-rebuild switch --flake ~/nixfleet#workmac
+```
+
+Update inputs, then rebuild:
+
+```bash
+nix flake update
+sudo darwin-rebuild switch --flake ~/nixfleet#workmac
+```
+
+Or use the `upos` alias after activation.
+
+## Applications and updates
+
+Prefer Nix packages. Installed GUI apps live in the Nix store and update only
+through flake updates + rebuild — do not use in-app update buttons. On macOS,
+Home Manager links app bundles under `~/Applications/Home Manager Apps`.
+
+Homebrew is limited to apps without usable Darwin packages in the pinned
+nixpkgs:
+
+- `httpie-desktop`
+- `balenaetcher`
+
+## Neovim
+
+Nix provides the `nvim` binary, editor infrastructure (`ripgrep`, `fd`,
+`tree-sitter`) and the servers for Nix and Lua — the languages this repo is
+written in, edited from anywhere rather than from inside one project. Plugins
+are managed by lazy.nvim; the Lua config lives in `modules/nvim/` and is
+symlinked out-of-store so it is editable without a rebuild.
+
+Project language servers, SDKs and formatters are **not** installed globally.
+Each project supplies its own through devenv + direnv. Neovim declares every
+server in `modules/nvim/lua/config/lsp.lua` but only starts those whose command
+is on `PATH`, so a TypeScript checkout never attempts the C# or Python servers.
+Run `:LspAvailable` to see what the current project provides.
+
+Because Neovim inherits `PATH` at startup, launch it from inside the project
+directory so direnv has already loaded the environment.
+
+What to add to a project's devenv per language:
+
+| Language      | Servers and formatters                                           |
+| ------------- | ---------------------------------------------------------------- |
+| Python        | `basedpyright`, `ruff`                                           |
+| TypeScript/JS | `vtsls`, `vscode-langservers-extracted`, `nodePackages.prettier`  |
+| C#            | `roslyn-ls`, `dotnet-sdk`, `csharpier`                           |
+
+## Checks
+
+```bash
+nix fmt
+nix flake check
+```
+
+`nix flake check` evaluates shared Home Manager modules on the current system
+and, on Darwin, builds the `workmac` configuration.
+
+## Linux portability
+
+Shared aspects under `flake.modules.homeManager.*` are written to evaluate on
+Darwin and Linux. There is no Linux host yet; when you add one, compose the
+needed `flake.modules.nixos.*` / `homeManager.*` aspects the same way
+`modules/hosts/workmac.nix` composes Darwin aspects.
+
+## 1Password
+
+1Password GUI and CLI are installed from Nix. SSH agent and Git commit signing
+are configured declaratively.
+
+On macOS the GUI cannot be used through Home Manager's `~/Applications` symlink:
+1Password refuses to launch unless its bundle is a real directory at
+`/Applications/1Password.app` ([nixpkgs#254944][1p-issue]). So Darwin uses
+nix-darwin's `programs._1password-gui`, which copies the bundle out of the store
+into `/Applications`, plus `programs._1password`, which puts the CLI at
+`/usr/local/bin/op` where the GUI expects it. The copy is root-owned and
+read-only, so in-app updates still cannot apply — use `nix flake update`.
+
+[1p-issue]: https://github.com/NixOS/nixpkgs/issues/254944
+
+One-time manual step after the first install:
+
+1. Open 1Password
+2. Settings → Developer
+3. Enable **Use the SSH agent**
