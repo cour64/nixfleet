@@ -3,6 +3,11 @@
 Dendritic Nix flake for Brendan's machines. Darwin is first-class today; shared
 Home Manager aspects also evaluate on Linux.
 
+The flake tracks Nixpkgs 26.05 (`nixpkgs-26.05-darwin`), nix-darwin
+`nix-darwin-26.05`, and Home Manager `release-26.05`. A `nixpkgs-unstable`
+input is present. Modules can use `pkgs.unstable.<pkg>` when a package
+needs a newer build than 26.05.
+
 ## Structure
 
 - `flake.nix` — inputs and `flake-parts` + `import-tree` entrypoint
@@ -35,7 +40,7 @@ through flake updates + rebuild — do not use in-app update buttons. On macOS,
 Home Manager links app bundles under `~/Applications/Home Manager Apps`.
 
 Homebrew is limited to apps without usable Darwin packages in the pinned
-nixpkgs:
+Nixpkgs 26.05 set:
 
 - `httpie-desktop`
 - `balenaetcher`
