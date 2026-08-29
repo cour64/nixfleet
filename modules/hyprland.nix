@@ -132,6 +132,10 @@
           hl.bind(mainMod .. " + J", hl.dsp.focus({ direction = "d" }))
           hl.bind(mainMod .. " + K", hl.dsp.focus({ direction = "u" }))
           hl.bind(mainMod .. " + L", hl.dsp.focus({ direction = "r" }))
+          hl.bind(mainMod .. " + CTRL + H", hl.dsp.window.resize({ x = -20, y = 0, relative = true }), { repeating = true })
+          hl.bind(mainMod .. " + CTRL + J", hl.dsp.window.resize({ x = 0, y = 20, relative = true }), { repeating = true })
+          hl.bind(mainMod .. " + CTRL + K", hl.dsp.window.resize({ x = 0, y = -20, relative = true }), { repeating = true })
+          hl.bind(mainMod .. " + CTRL + L", hl.dsp.window.resize({ x = 20, y = 0, relative = true }), { repeating = true })
           hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
           hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 

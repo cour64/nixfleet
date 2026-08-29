@@ -22,6 +22,8 @@ in
           wget
           curl
           jq
+          # Not backported to 26.05; merged into unstable on 2026-08-25.
+          unstable.tuicr
         ]
         ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
           gum

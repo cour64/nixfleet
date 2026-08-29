@@ -24,6 +24,10 @@
               default_area = "navbar";
               private_browsing = true;
             };
+            "{4520dc08-80f4-4b2e-982a-c17af42e5e4d}" = {
+              install_url = "https://addons.mozilla.org/firefox/downloads/latest/tokyo-night-milav/latest.xpi";
+              installation_mode = "force_installed";
+            };
           };
         };
       };

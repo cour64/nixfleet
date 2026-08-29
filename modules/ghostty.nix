@@ -9,7 +9,10 @@
         settings = {
           # Ghostty 1.2+ ships Title Case names; "tokyonight" no longer exists.
           theme = "TokyoNight Night";
-          font-family = "Iosevka Nerd Font";
+          # Term + Mono: Iosevka's default Nerd patch leaves icons double-width
+          # against the narrow Latin glyphs. Term metrics and Mono cell width
+          # keep powerline/prompt icons aligned.
+          font-family = "IosevkaTerm Nerd Font Mono";
           font-size = 14;
           shell-integration = "zsh";
           command = "${pkgs.zsh}/bin/zsh";

@@ -4,7 +4,7 @@ let
     {
       fonts.packages = with pkgs; [
         inter
-        nerd-fonts.iosevka
+        nerd-fonts.iosevka-term
       ];
     };
 in
@@ -20,7 +20,7 @@ in
         defaultFonts = {
           sansSerif = [ "Inter" ];
           serif = [ "Inter" ];
-          monospace = [ "Iosevka Nerd Font" ];
+          monospace = [ "IosevkaTerm Nerd Font Mono" ];
         };
       };
 
@@ -28,7 +28,7 @@ in
       # Manager on Linux has no system module, so install the faces there too.
       home.packages = lib.mkIf pkgs.stdenv.hostPlatform.isLinux [
         pkgs.inter
-        pkgs.nerd-fonts.iosevka
+        pkgs.nerd-fonts.iosevka-term
       ];
 
       gtk = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {

@@ -20,7 +20,9 @@
           user = {
             name = "Brendan de la Cour";
             email = if isDarwin then "brendan.delacour@se.com" else "brendan.dlc@gmail.com";
-            signingKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPJa3S25gbOWCPHrB22QO1W4GrAMfqTGY3al6Y4q7JZP";
+            # Key that lives in 1Password ("Github SSH"); signing fails if the
+            # agent can't offer it.
+            signingKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE4YENRaOoeMpZwx8yJkjtIRu8pdkGjWjYHDdiuSDhtF";
           };
           aliases = {
             prettylog = "log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(r) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative";

@@ -7,6 +7,9 @@
         autoupdate = false;
         autoshare = false;
       };
+      tui = {
+        theme = "tokyonight";
+      };
     };
   };
 }
