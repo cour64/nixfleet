@@ -85,7 +85,7 @@ in
       home.username = username;
       home.homeDirectory =
         if pkgs.stdenv.hostPlatform.isDarwin then "/Users/${username}" else "/home/${username}";
-      home.stateVersion = "24.11";
+      home.stateVersion = "26.05";
       home.preferXdgDirectories = true;
       xdg.enable = true;
       programs.home-manager.enable = true;

@@ -7,9 +7,13 @@
       self.modules.nixos.nvidia
     ];
 
+    # Do not use the upstream overlays: they callPackage against this flake's
+    # nixpkgs and miss Cachix. Alias the packages CI actually built.
     nixpkgs.overlays = [
-      inputs.noctalia.overlays.default
-      inputs.noctalia-greeter.overlays.default
+      (_final: prev: {
+        noctalia = inputs.noctalia.packages.${prev.stdenv.hostPlatform.system}.default;
+        noctalia-greeter = inputs.noctalia-greeter.packages.${prev.stdenv.hostPlatform.system}.default;
+      })
     ];
 
     programs.hyprland = {
@@ -64,7 +68,8 @@
       enable = true;
       # UWSM owns the session; the Home Manager systemd integration conflicts with it.
       systemd.enable = false;
-      # home.stateVersion is 24.11, which would still emit hyprland.conf.
+      # 26.05 defaults to lua; keep this explicit so a stateVersion bump cannot
+      # silently switch the file format.
       configType = "lua";
       extraConfig = ''
         local mainMod = "SUPER"
@@ -161,6 +166,13 @@
         shell = {
           font_family = "Inter";
           polkit_agent = true;
+        };
+        bar.default = {
+          # Built-in default is 100px inset from each end.
+          margin_ends = 0;
+          thickness = 28;
+          padding = 10;
+          scale = 0.9;
         };
       };
     };

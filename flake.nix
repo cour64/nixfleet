@@ -23,5 +23,15 @@
     import-tree.url = "github:vic/import-tree";
   };
 
+  # So the first rebuild can use Cachix; nix.settings in the NixOS module only
+  # lands in nix.conf after that switch. Accept once with --accept-flake-config
+  # if Nix asks.
+  nixConfig = {
+    extra-substituters = [ "https://noctalia.cachix.org" ];
+    extra-trusted-public-keys = [
+      "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
+    ];
+  };
+
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
 }

@@ -1,9 +1,11 @@
 {
   flake.modules.homeManager.firefox =
-    { pkgs, ... }:
+    { pkgs, config, ... }:
     {
       programs.firefox = {
         enable = true;
+        # New Linux home: use the 26.05 XDG profile path, not ~/.mozilla/firefox.
+        configPath = "${config.xdg.configHome}/mozilla/firefox";
         # Lets the 1Password desktop app talk to the extension (NixOS module
         # already wraps BrowserSupport).
         nativeMessagingHosts = [ pkgs._1password-gui ];

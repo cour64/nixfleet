@@ -38,7 +38,7 @@ Or use the `upos` alias after activation.
 
 Prefer Nix packages. Installed GUI apps live in the Nix store and update only
 through flake updates + rebuild — do not use in-app update buttons. On macOS,
-Home Manager links app bundles under `~/Applications/Home Manager Apps`.
+Home Manager copies app bundles under `~/Applications/Home Manager Apps`.
 
 Homebrew is limited to apps without usable Darwin packages in the pinned
 Nixpkgs 26.05 set:
