@@ -98,6 +98,9 @@
           hl.env("XCURSOR_SIZE", "24")
 
           hl.config({
+            animations = {
+              enabled = false,
+            },
             general = {
               gaps_in = 5,
               gaps_out = 10,
@@ -161,6 +164,15 @@
             size = { 1080, 920 },
           })
 
+          -- 1Password's Electron dialogs (SSH authorize, unlock) get tiled and
+          -- their buttons clipped; keep them floating and centered instead.
+          hl.window_rule({
+            match = { class = "1Password" },
+            float = true,
+            pin = true,
+            center = true,
+          })
+
           hl.layer_rule({
             name = "noctalia",
             match = {
@@ -186,6 +198,8 @@
           shell = {
             font_family = "Inter";
             polkit_agent = true;
+            # Disable Noctalia's own UI animations (panels, toasts, OSD).
+            animation.enabled = false;
           };
           bar.default = {
             # Built-in default is 100px inset from each end.

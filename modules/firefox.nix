@@ -11,6 +11,18 @@
         nativeMessagingHosts = [ pkgs._1password-gui ];
         policies = {
           DisableTelemetry = true;
+          # Compact mode: browser.uidensity 0=normal 1=compact 2=touch.
+          # compactmode.show keeps the density option visible in Customize.
+          Preferences = {
+            "browser.uidensity" = {
+              Value = 1;
+              Status = "active";
+            };
+            "browser.compactmode.show" = {
+              Value = true;
+              Status = "active";
+            };
+          };
           ExtensionSettings = {
             "uBlock0@raymondhill.net" = {
               install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
