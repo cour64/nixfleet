@@ -1,11 +1,20 @@
-{ self, ... }:
+{ self, inputs, ... }:
 let
   username = "brendan";
+
+  homeManager = {
+    useGlobalPkgs = true;
+    useUserPackages = true;
+    backupFileExtension = "home-manager-backup";
+    users.${username}.imports = [ self.modules.homeManager.brendan ];
+  };
 in
 {
   flake.modules.darwin.brendan =
     { pkgs, ... }:
     {
+      imports = [ inputs.home-manager.darwinModules.home-manager ];
+
       system.primaryUser = username;
 
       users.users.${username} = {
@@ -14,34 +23,51 @@ in
         shell = pkgs.zsh;
       };
 
-      home-manager = {
-        useGlobalPkgs = true;
-        useUserPackages = true;
-        backupFileExtension = "home-manager-backup";
-        users.${username} = {
-          imports = with self.modules.homeManager; [
-            brendan
-            fonts
-            packages
-            applications
-            zsh
-            git
-            ssh
-            tmux
-            cli-tools
-            ghostty
-            nvim
-            direnv
-            nodejs
-            onepassword
-          ];
-        };
+      home-manager = homeManager;
+    };
+
+  flake.modules.nixos.brendan =
+    { pkgs, ... }:
+    {
+      imports = [ inputs.home-manager.nixosModules.home-manager ];
+
+      users.users.${username} = {
+        isNormalUser = true;
+        extraGroups = [ "wheel" ];
+        home = "/home/${username}";
+        description = username;
+        shell = pkgs.zsh;
       };
+
+      # Required for 1Password CLI integration and system unlock on NixOS.
+      programs._1password-gui.polkitPolicyOwners = [ username ];
+
+      home-manager = homeManager;
     };
 
   flake.modules.homeManager.brendan =
-    { pkgs, ... }:
+    { pkgs, lib, ... }:
     {
+      imports =
+        with self.modules.homeManager;
+        [
+          fonts
+          packages
+          zsh
+          git
+          ssh
+          tmux
+          cli-tools
+          ghostty
+          nvim
+          direnv
+          onepassword
+        ]
+        ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+          applications
+          nodejs
+        ];
+
       home.username = username;
       home.homeDirectory =
         if pkgs.stdenv.hostPlatform.isDarwin then "/Users/${username}" else "/home/${username}";

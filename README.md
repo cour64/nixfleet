@@ -1,7 +1,8 @@
 # nixfleet
 
-Dendritic Nix flake for Brendan's machines. Darwin is first-class today; shared
-Home Manager aspects also evaluate on Linux.
+Dendritic Nix flake for Brendan's machines. Darwin and NixOS share system
+aspects where the options exist on both; macOS defaults and Homebrew stay
+Darwin-only. Shared Home Manager aspects evaluate on Darwin and Linux.
 
 The flake tracks Nixpkgs 26.05 (`nixpkgs-26.05-darwin`), nix-darwin
 `nix-darwin-26.05`, and Home Manager `release-26.05`. A `nixpkgs-unstable`
@@ -70,22 +71,19 @@ What to add to a project's devenv per language:
 | TypeScript/JS | `vtsls`, `vscode-langservers-extracted`, `nodePackages.prettier`  |
 | C#            | `roslyn-ls`, `dotnet-sdk`, `csharpier`                           |
 
-## Checks
+## Linux / NixOS portability
+
+Portable system aspects are exported to both `flake.modules.darwin.*` and
+`flake.modules.nixos.*`: `nix`, `fonts`, `packages`, `zsh`, `onepassword`,
+and the `brendan` user. `macos` and `homebrew` are Darwin-only.
+
+There is no NixOS host yet. When you add one, compose `self.modules.nixos`
+the same way `modules/hosts/workmac.nix` composes Darwin aspects, plus
+hardware, boot, and `system.stateVersion`. Rebuild with:
 
 ```bash
-nix fmt
-nix flake check
+sudo nixos-rebuild switch --flake ~/nixfleet#<hostname>
 ```
-
-`nix flake check` evaluates shared Home Manager modules on the current system
-and, on Darwin, builds the `workmac` configuration.
-
-## Linux portability
-
-Shared aspects under `flake.modules.homeManager.*` are written to evaluate on
-Darwin and Linux. There is no Linux host yet; when you add one, compose the
-needed `flake.modules.nixos.*` / `homeManager.*` aspects the same way
-`modules/hosts/workmac.nix` composes Darwin aspects.
 
 ## 1Password
 
@@ -101,6 +99,10 @@ into `/Applications`, plus `programs._1password`, which puts the CLI at
 read-only, so in-app updates still cannot apply — use `nix flake update`.
 
 [1p-issue]: https://github.com/NixOS/nixpkgs/issues/254944
+
+On NixOS the same `programs._1password` and `programs._1password-gui` options
+install CLI and GUI system-wide. The `brendan` user module sets
+`polkitPolicyOwners` so CLI integration and system authentication work.
 
 One-time manual step after the first install:
 

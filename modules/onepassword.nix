@@ -7,7 +7,18 @@
   # integration. The copy is root-owned and read-only, so it still cannot
   # self-update: version bumps come from `nix flake update` as with everything
   # else here.
+  #
+  # NixOS uses the same option names. The GUI integrates via PolKit; the
+  # NixOS user module lists `polkitPolicyOwners` so CLI and system
+  # authentication work for that account. Do not also add the GUI to Home
+  # Manager on either OS: on Darwin that recreates the unusable symlink, and
+  # on NixOS the system module already installs it.
   flake.modules.darwin.onepassword = {
+    programs._1password.enable = true;
+    programs._1password-gui.enable = true;
+  };
+
+  flake.modules.nixos.onepassword = {
     programs._1password.enable = true;
     programs._1password-gui.enable = true;
   };
@@ -29,10 +40,7 @@
     {
       home.packages = [
         pkgs._1password-cli
-      ]
-      # On Darwin the GUI comes from the nix-darwin module above. Adding it here
-      # would only recreate the ~/Applications symlink that cannot be launched.
-      ++ lib.optional pkgs.stdenv.hostPlatform.isLinux pkgs._1password-gui;
+      ];
 
       # Ordered after Home Manager's own aliases (1100) so the op wrappers win.
       # An `if` rather than `[[ … ]] && source`, which would leave $? at 1 and

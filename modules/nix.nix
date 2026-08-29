@@ -1,6 +1,6 @@
 { inputs, ... }:
-{
-  flake.modules.darwin.nix = {
+let
+  nix = {
     nix.settings.experimental-features = "nix-command flakes";
     nix.optimise.automatic = true;
     nixpkgs.config.allowUnfree = true;
@@ -13,6 +13,10 @@
       })
     ];
   };
+in
+{
+  flake.modules.darwin.nix = nix;
+  flake.modules.nixos.nix = nix;
 
   flake.modules.homeManager.nix = {
     nixpkgs.config.allowUnfree = true;
