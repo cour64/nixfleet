@@ -6,7 +6,6 @@ let
     useGlobalPkgs = true;
     useUserPackages = true;
     backupFileExtension = "home-manager-backup";
-    users.${username}.imports = [ self.modules.homeManager.brendan ];
   };
 in
 {
@@ -23,7 +22,13 @@ in
         shell = pkgs.zsh;
       };
 
-      home-manager = homeManager;
+      home-manager = homeManager // {
+        users.${username}.imports = with self.modules.homeManager; [
+          brendan
+          applications
+          nodejs
+        ];
+      };
     };
 
   flake.modules.nixos.brendan =
@@ -51,35 +56,31 @@ in
       # Required for 1Password CLI integration and system unlock on NixOS.
       programs._1password-gui.polkitPolicyOwners = [ username ];
 
-      home-manager = homeManager;
-    };
-
-  flake.modules.homeManager.brendan =
-    { pkgs, lib, ... }:
-    {
-      imports =
-        with self.modules.homeManager;
-        [
-          fonts
-          packages
-          zsh
-          git
-          ssh
-          tmux
-          cli-tools
-          ghostty
-          nvim
-          direnv
-          onepassword
-        ]
-        ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
-          applications
-          nodejs
-        ]
-        ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+      home-manager = homeManager // {
+        users.${username}.imports = with self.modules.homeManager; [
+          brendan
           hyprland
           firefox
         ];
+      };
+    };
+
+  flake.modules.homeManager.brendan =
+    { pkgs, ... }:
+    {
+      imports = with self.modules.homeManager; [
+        fonts
+        packages
+        zsh
+        git
+        ssh
+        tmux
+        cli-tools
+        ghostty
+        nvim
+        direnv
+        onepassword
+      ];
 
       home.username = username;
       home.homeDirectory =
