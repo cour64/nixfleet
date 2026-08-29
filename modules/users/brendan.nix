@@ -61,6 +61,7 @@ in
           brendan
           hyprland
           firefox
+          opencode
         ];
       };
     };

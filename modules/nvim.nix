@@ -35,7 +35,8 @@
             ripgrep
             fd
 
-            # Treesitter parser compilation (cc/make come from Xcode CLT)
+            # Treesitter CLI; parsers still compile with a C toolchain at
+            # first launch (`:TSUpdate` / nvim-treesitter install).
             tree-sitter
 
             # This repo's own languages
@@ -47,6 +48,8 @@
           # clipboard = "unnamedplus" shells out to a platform helper. Darwin has
           # pbcopy/pbpaste built in; Linux needs these for Wayland and X11.
           ++ lib.optionals stdenv.hostPlatform.isLinux [
+            gcc
+            gnumake
             wl-clipboard
             xclip
           ];

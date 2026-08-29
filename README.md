@@ -86,9 +86,9 @@ login screen is the Noctalia greeter; it starts the UWSM Hyprland session
 by default. The Legion is AMD iGPU + RTX 3070 Ti (PRIME offload): Hyprland
 runs on AMD, and `nvidia-offload <app>` uses the NVIDIA GPU. Confirm
 `amdgpuBusId` with `lspci -d ::03xx` if you have more than one NVMe drive
-(often `PCI:6:0:0`). Firefox (with uBlock Origin and 1Password) and Steam
-are NixOS-only. For NVIDIA games, `nvidia-offload steam` or a Steam launch
-option.
+(often `PCI:6:0:0`). Firefox (with uBlock Origin and 1Password), Steam, and
+OpenCode are NixOS-only. For NVIDIA games, `nvidia-offload steam` or a Steam
+launch option.
 
 `Super+Return` opens Ghostty. `Super+Space` opens the Noctalia launcher.
 Rebuild with:
@@ -121,3 +121,16 @@ One-time manual step after the first install:
 1. Open 1Password
 2. Settings → Developer
 3. Enable **Use the SSH agent**
+
+## OpenCode
+
+NixOS Home Manager installs OpenCode with OpenRouter as the default provider.
+The API key is not in the flake. After rebuild:
+
+1. Create a key at [openrouter.ai/keys](https://openrouter.ai/settings/keys)
+2. In a project directory: `opencode` then `/connect`, choose OpenRouter, paste
+   the key (stored in `~/.local/share/opencode/auth.json`)
+3. `/models` to pick a model
+
+Do not use the upstream install script; the package comes from Nixpkgs and
+`autoupdate` is off.
