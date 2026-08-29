@@ -34,7 +34,11 @@ return {
       },
     },
     pickers = {
-      find_files = { hidden = true },
+      find_files = {
+        hidden = true,
+        -- rg --hidden lists .git. .git is not in .gitignore.
+        find_command = { "rg", "--files", "--color", "never", "--glob", "!**/.git/**" },
+      },
     },
     extensions = {
       fzf = {},

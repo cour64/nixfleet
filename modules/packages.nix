@@ -18,7 +18,13 @@
         jq
         gum
         hostctl
-        gh
       ];
+
+      # Stable nixpkgs lags upstream; take gh and its extensions from unstable.
+      programs.gh = {
+        enable = true;
+        package = pkgs.unstable.gh;
+        extensions = [ pkgs.unstable.gh-stack ];
+      };
     };
 }

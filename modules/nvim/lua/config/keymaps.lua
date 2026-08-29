@@ -21,6 +21,9 @@ end, { expr = true, desc = "Previous completion item" })
 map("n", "<Esc>", "<cmd>nohlsearch<CR>", { desc = "Clear search highlight" })
 map("n", "<leader>w", "<cmd>write<CR>", { desc = "Write file" })
 
+-- / still searches the whole file. This map limits / to the last visual area.
+map("x", "<leader>/", "<Esc>/\\%V", { desc = "Search in selection" })
+
 -- Window navigation without the <C-w> prefix
 map("n", "<C-h>", "<C-w>h", { desc = "Window left" })
 map("n", "<C-j>", "<C-w>j", { desc = "Window down" })

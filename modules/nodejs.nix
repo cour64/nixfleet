@@ -2,7 +2,7 @@
   flake.modules.homeManager.nodejs =
     { pkgs, lib, ... }:
     {
-      home.packages = [ pkgs.nodejs_24 ];
+      home.packages = [ pkgs.nodejs_26 ];
 
       home.file.".npmrc".text = ''
         prefix=$HOME/.npm-global
