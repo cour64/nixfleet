@@ -3,7 +3,8 @@ let
     { pkgs, ... }:
     {
       fonts.packages = with pkgs; [
-        nerd-fonts.jetbrains-mono
+        inter
+        nerd-fonts.iosevka
       ];
     };
 in
@@ -14,11 +15,28 @@ in
   flake.modules.homeManager.fonts =
     { pkgs, lib, ... }:
     {
-      fonts.fontconfig.enable = true;
+      fonts.fontconfig = {
+        enable = true;
+        defaultFonts = {
+          sansSerif = [ "Inter" ];
+          serif = [ "Inter" ];
+          monospace = [ "Iosevka Nerd Font" ];
+        };
+      };
+
       # System fonts.packages covers Darwin and NixOS hosts. Standalone Home
-      # Manager on Linux has no system module, so install the face there too.
+      # Manager on Linux has no system module, so install the faces there too.
       home.packages = lib.mkIf pkgs.stdenv.hostPlatform.isLinux [
-        pkgs.nerd-fonts.jetbrains-mono
+        pkgs.inter
+        pkgs.nerd-fonts.iosevka
       ];
+
+      gtk = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+        enable = true;
+        font = {
+          name = "Inter";
+          size = 11;
+        };
+      };
     };
 }

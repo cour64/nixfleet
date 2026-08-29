@@ -19,7 +19,7 @@
         settings = {
           user = {
             name = "Brendan de la Cour";
-            email = "brendan.delacour@se.com";
+            email = if isDarwin then "brendan.delacour@se.com" else "brendan.dlc@gmail.com";
             signingKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPJa3S25gbOWCPHrB22QO1W4GrAMfqTGY3al6Y4q7JZP";
           };
           aliases = {

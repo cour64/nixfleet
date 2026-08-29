@@ -13,6 +13,10 @@
 
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
 
+    # Pin the cached branch so Cachix hits; following nixpkgs would miss the cache.
+    noctalia.url = "github:noctalia-dev/noctalia/cachix";
+    noctalia-greeter.url = "github:noctalia-dev/noctalia-greeter";
+
     flake-parts.url = "github:hercules-ci/flake-parts";
     flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
 

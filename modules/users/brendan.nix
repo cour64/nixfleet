@@ -29,11 +29,20 @@ in
   flake.modules.nixos.brendan =
     { pkgs, ... }:
     {
-      imports = [ inputs.home-manager.nixosModules.home-manager ];
+      imports = [
+        inputs.home-manager.nixosModules.home-manager
+        self.modules.nixos.hyprland
+        self.modules.nixos.steam
+      ];
 
       users.users.${username} = {
         isNormalUser = true;
-        extraGroups = [ "wheel" ];
+        extraGroups = [
+          "wheel"
+          "networkmanager"
+          "video"
+          "input"
+        ];
         home = "/home/${username}";
         description = username;
         shell = pkgs.zsh;
@@ -66,6 +75,10 @@ in
         ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
           applications
           nodejs
+        ]
+        ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+          hyprland
+          firefox
         ];
 
       home.username = username;

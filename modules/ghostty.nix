@@ -8,7 +8,7 @@
         enableZshIntegration = true;
         settings = {
           theme = "tokyonight";
-          font-family = "JetBrainsMono Nerd Font";
+          font-family = "Iosevka Nerd Font";
           font-size = 14;
           shell-integration = "zsh";
           command = "${pkgs.zsh}/bin/zsh";
