@@ -219,6 +219,9 @@ prune_dependents() { # args: toolkits already removed
 		changed=0
 		local -a keep=()
 		for t in "${TOOLKITS[@]}"; do
+			if [[ -n ${gone[$t]:-} ]]; then
+				continue
+			fi
 			drop=0
 			read -ra reqs <<<"${TOOL_REQ[$t]:-}"
 			for r in "${reqs[@]}"; do
