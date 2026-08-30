@@ -17,6 +17,17 @@
     noctalia.url = "github:noctalia-dev/noctalia/cachix";
     noctalia-greeter.url = "github:noctalia-dev/noctalia-greeter";
 
+    # Herdr is built from upstream's source in modules/herdr.nix rather than
+    # via its packages output: its flake pins nixos-unstable, whose crate
+    # fetcher hits the crates.io API endpoint that 403s Nix's curl User-Agent
+    # (26.05 already fetches from static.crates.io).
+    herdr.url = "github:herdrdev/herdr/v0.8.2";
+    herdr.inputs.nixpkgs.follows = "nixpkgs";
+
+    # Pins the Rust toolchain herdr's rust-toolchain.toml requests.
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
+
     flake-parts.url = "github:hercules-ci/flake-parts";
     flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
 

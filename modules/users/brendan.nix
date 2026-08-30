@@ -78,6 +78,7 @@ in
         tmux
         cli-tools
         ghostty
+        herdr
         nvim
         direnv
         onepassword
