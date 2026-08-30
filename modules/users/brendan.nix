@@ -81,6 +81,7 @@ in
         herdr
         nvim
         direnv
+        mkshell
         onepassword
       ];
 

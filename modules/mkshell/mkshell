@@ -1,0 +1,724 @@
+#!/usr/bin/env bash
+# mkshell — quickly build and edit flake.nix dev environments for direnv.
+#
+# flake.nix is generated with <mkshell:...> managed regions: hand edits outside
+# them survive rewrites, and drift inside them is detected via sha256
+# fingerprints before overwriting. Tool state and caches live under
+# .local-nix-env/ in the project so nothing leaks into your home directory.
+set -euo pipefail
+
+PROG=mkshell
+DEFAULT_DESC="Dev environment managed by mkshell"
+DEFAULT_NIXPKGS="github:NixOS/nixpkgs/nixpkgs-26.05-darwin"
+PKG_START='# <mkshell:packages>'
+PKG_END='# </mkshell:packages>'
+HOOK_START='# <mkshell:hook>'
+HOOK_END='# </mkshell:hook>'
+
+DIR=.
+FORCE=0
+NOALLOW=0
+INIT_TOOLKITS=""
+INIT_EXTRA=""
+INIT_DESC=""
+INIT_NIXPKGS=""
+POSITIONAL=()
+
+MANIFEST_DESC=""
+MANIFEST_NIXPKGS=""
+STORED_PKG_HASH=""
+STORED_HOOK_HASH=""
+NEW_PKG_HASH=""
+NEW_HOOK_HASH=""
+TOOLKITS=()
+EXTRAS=()
+
+# --- toolkit registry --------------------------------------------------------
+# Categories are ordered in generated hooks: languages, runtimes, then package
+# managers, so package managers always override runtime variables.
+
+declare -A TOOL_CAT TOOL_PKGS TOOL_HOOK TOOL_REQ TOOL_PATHPREPEND
+TOOL_CAT[go]=language TOOL_PKGS[go]="go" TOOL_PATHPREPEND[go]=GOBIN
+TOOL_HOOK[go]=$'GO_ROOT="$LOCAL_ENV_ROOT/go"\nunset GOPATH GOMODCACHE GOCACHE GOBIN GOTMPDIR\nexport GOPATH="$GO_ROOT"\nexport GOMODCACHE="$GO_ROOT/pkg/mod"\nexport GOCACHE="$GO_ROOT/cache"\nexport GOBIN="$GO_ROOT/bin"\nexport GOTMPDIR="$GO_ROOT/tmp"\nmkdir -p "$GOPATH" "$GOMODCACHE" "$GOCACHE" "$GOBIN" "$GOTMPDIR"'
+TOOL_CAT[rust]=language TOOL_PKGS[rust]="rustc cargo clippy rustfmt rust-analyzer"
+TOOL_HOOK[rust]=$'RUST_ROOT="$LOCAL_ENV_ROOT/rust"\nexport CARGO_HOME="$RUST_ROOT/cargo"\nmkdir -p "$CARGO_HOME"'
+TOOL_CAT[python]=language TOOL_PKGS[python]="python3"
+TOOL_HOOK[python]=$'PYTHON_ROOT="$LOCAL_ENV_ROOT/python"\nexport PIP_CACHE_DIR="$PYTHON_ROOT/pip-cache"\nmkdir -p "$PIP_CACHE_DIR"'
+TOOL_CAT[node]=runtime TOOL_PKGS[node]="nodejs_26"
+TOOL_HOOK[node]=$'NODE_ROOT="$LOCAL_ENV_ROOT/node"\nunset npm_config_store_dir npm_config_cache_dir npm_config_global_dir npm_config_state_dir npm_config_minimum_release_age npm_config_min_release_age PNPM_HOME\nexport npm_config_cache="$NODE_ROOT/cache"\nexport TMPDIR="$NODE_ROOT/tmp"\nmkdir -p "$npm_config_cache" "$TMPDIR"'
+TOOL_CAT[bun]=runtime TOOL_PKGS[bun]="bun"
+TOOL_HOOK[bun]=$'BUN_ROOT="$LOCAL_ENV_ROOT/bun"\nexport BUN_INSTALL="$BUN_ROOT/install"\nmkdir -p "$BUN_INSTALL"'
+TOOL_CAT[deno]=runtime TOOL_PKGS[deno]="deno"
+TOOL_HOOK[deno]=$'DENO_ROOT="$LOCAL_ENV_ROOT/deno"\nexport DENO_DIR="$DENO_ROOT/cache"\nexport DENO_INSTALL_ROOT="$DENO_ROOT/install"\nmkdir -p "$DENO_DIR" "$DENO_INSTALL_ROOT"'
+TOOL_CAT[pnpm]=package-manager TOOL_PKGS[pnpm]="pnpm" TOOL_REQ[pnpm]="node"
+TOOL_HOOK[pnpm]=$'PNPM_ROOT="$LOCAL_ENV_ROOT/pnpm"\nunset npm_config_cache_dir npm_config_global_dir npm_config_state_dir\nexport PNPM_HOME="$PNPM_ROOT/home"\nexport npm_config_store_dir="$PNPM_ROOT/store"\nexport npm_config_cache="$PNPM_ROOT/cache"\nexport TMPDIR="$PNPM_ROOT/tmp"\nmkdir -p "$PNPM_HOME" "$npm_config_store_dir" "$npm_config_cache" "$TMPDIR"'
+TOOL_CAT[uv]=package-manager TOOL_PKGS[uv]="uv"
+TOOL_HOOK[uv]=$'UV_ROOT="$LOCAL_ENV_ROOT/uv"\nexport UV_CACHE_DIR="$UV_ROOT/cache"\nexport UV_PYTHON_INSTALL_DIR="$UV_ROOT/pythons"\nmkdir -p "$UV_CACHE_DIR" "$UV_PYTHON_INSTALL_DIR"'
+
+registry_names() {
+	printf '%s\n' "${!TOOL_PKGS[@]}" | sort
+}
+
+available_list() {
+	local names=()
+	mapfile -t names < <(registry_names)
+	printf '%s' "${names[*]}"
+}
+
+is_toolkit() { [[ -n ${TOOL_PKGS[$1]:-} ]]; }
+
+die() {
+	echo "Error: $*" >&2
+	exit 1
+}
+
+# --- temp files --------------------------------------------------------------
+
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+
+# --- manifest ----------------------------------------------------------------
+
+manifest_path() { printf '%s/mkshell.conf' "$DIR"; }
+manifest_exists() { [[ -f $(manifest_path) ]]; }
+
+manifest_value() { # key -> first value on stdout
+	awk -F= -v k="$1" '$1 == k { sub(/^[^=]*=/, ""); print; exit }' "$(manifest_path)"
+}
+
+load_manifest() {
+	local f
+	f=$(manifest_path)
+	MANIFEST_DESC=$(manifest_value description)
+	MANIFEST_NIXPKGS=$(manifest_value nixpkgs)
+	[[ -n $MANIFEST_DESC ]] || MANIFEST_DESC=$DEFAULT_DESC
+	[[ -n $MANIFEST_NIXPKGS ]] || MANIFEST_NIXPKGS=$DEFAULT_NIXPKGS
+	STORED_PKG_HASH=$(manifest_value pkg_hash)
+	STORED_HOOK_HASH=$(manifest_value hook_hash)
+	mapfile -t TOOLKITS < <(awk -F= '$1 == "toolkit" { print $2 }' "$f")
+	mapfile -t EXTRAS < <(awk -F= '$1 == "extra" { print $2 }' "$f")
+	awk '$0 == "extra_hook_start" { on = 1; next } $0 == "extra_hook_end" { on = 0 } on' "$f" >"$WORK/extra_hook"
+}
+
+save_manifest() {
+	local f out t e
+	f=$(manifest_path)
+	out=$WORK/mkshell.conf
+	{
+		printf 'description=%s\n' "$MANIFEST_DESC"
+		printf 'nixpkgs=%s\n' "$MANIFEST_NIXPKGS"
+		for t in "${TOOLKITS[@]}"; do
+			[[ -n $t ]] && printf 'toolkit=%s\n' "$t"
+		done
+		for e in "${EXTRAS[@]}"; do
+			[[ -n $e ]] && printf 'extra=%s\n' "$e"
+		done
+		if [[ -s $WORK/extra_hook ]]; then
+			echo 'extra_hook_start'
+			cat "$WORK/extra_hook"
+			echo 'extra_hook_end'
+		fi
+		printf 'pkg_hash=%s\n' "$NEW_PKG_HASH"
+		printf 'hook_hash=%s\n' "$NEW_HOOK_HASH"
+	} >"$out"
+	mv "$out" "$f"
+}
+
+ordered_toolkits() {
+	local cat t
+	for cat in language runtime package-manager; do
+		for t in "${TOOLKITS[@]}"; do
+			if [[ ${TOOL_CAT[$t]} == "$cat" ]]; then
+				printf '%s\n' "$t"
+			fi
+		done
+	done
+}
+
+packages_body() {
+	local -A seen=()
+	local t p e
+	for t in $(ordered_toolkits); do
+		read -ra tk_pkgs <<<"${TOOL_PKGS[$t]}"
+		for p in "${tk_pkgs[@]}"; do
+			[[ -n ${seen[$p]:-} ]] && continue
+			seen[$p]=1
+			printf '%s\n' "$p"
+		done
+	done
+	for e in "${EXTRAS[@]}"; do
+		if [[ -n $e && -z ${seen[$e]:-} ]]; then
+			seen[$e]=1
+			printf '%s\n' "$e"
+		fi
+	done
+}
+
+hook_body() { # unescaped, unindented; written to $WORK/hook_raw
+	{
+		# shellcheck disable=SC2016  # literal $ is written into the generated hook
+		echo 'LOCAL_ENV_ROOT="$PWD/.local-nix-env"'
+		local t v
+		for t in $(ordered_toolkits); do
+			echo
+			echo "${TOOL_HOOK[$t]}"
+			read -ra prepends <<<"${TOOL_PATHPREPEND[$t]:-}"
+			for v in "${prepends[@]}"; do
+				# shellcheck disable=SC2016  # literal $ expands inside the generated hook
+				[[ -n $v ]] && printf 'export PATH="$%s:$PATH"\n' "$v"
+			done
+		done
+		if [[ -s $WORK/extra_hook ]]; then
+			echo
+			cat "$WORK/extra_hook"
+		fi
+	} >"$WORK/hook_raw"
+}
+
+join_comma() { # args -> a,b,c on stdout
+	local IFS=,
+	printf '%s' "$*"
+}
+
+resolve_requires() {
+	local -A sel=()
+	local -a added=()
+	local t r changed
+	for t in "${TOOLKITS[@]}"; do
+		[[ -n $t ]] && sel[$t]=1
+	done
+	while :; do
+		changed=0
+		for t in $(ordered_toolkits); do
+			read -ra reqs <<<"${TOOL_REQ[$t]:-}"
+			for r in "${reqs[@]}"; do
+				if [[ -n $r && -z ${sel[$r]:-} ]]; then
+					sel[$r]=1
+					TOOLKITS+=("$r")
+					added+=("$r")
+					changed=1
+				fi
+			done
+		done
+		((changed)) || break
+	done
+	if ((${#added[@]})); then
+		printf 'added missing dependencies: %s\n' "$(join_comma "${added[@]}")"
+	fi
+}
+
+prune_dependents() { # args: toolkits already removed
+	local -A gone=()
+	local -a cascade=()
+	local t r changed drop
+	local name
+	for name in "$@"; do
+		gone[$name]=1
+	done
+	while :; do
+		changed=0
+		local -a keep=()
+		for t in "${TOOLKITS[@]}"; do
+			drop=0
+			read -ra reqs <<<"${TOOL_REQ[$t]:-}"
+			for r in "${reqs[@]}"; do
+				if [[ -n $r && -n ${gone[$r]:-} ]]; then
+					drop=1
+					break
+				fi
+			done
+			if ((drop)); then
+				gone[$t]=1
+				cascade+=("$t")
+				changed=1
+			else
+				keep+=("$t")
+			fi
+		done
+		TOOLKITS=("${keep[@]}")
+		((changed)) || break
+	done
+	if ((${#cascade[@]})); then
+		printf 'removed dependent toolkits: %s\n' "$(join_comma "${cascade[@]}")"
+	fi
+}
+
+# --- flake generation --------------------------------------------------------
+
+escape_nix_quoted() { # for "..." strings: description, nixpkgs
+	sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\${/\\${/g'
+}
+
+escape_nix_indented() { # for ''...'' strings: hook bodies
+	# escape ${ first, then '', so the inserted ''${ is not re-escaped
+	sed -e 's/\${/\x01DOLLAR\x01/g' -e "s/''/'''/g" -e 's/\x01DOLLAR\x01/'"''\$"'/g'
+}
+
+render_flake() { # writes a complete flake to $1
+	local out=$1
+	local esc_desc esc_nixpkgs
+	esc_desc=$(printf '%s' "$MANIFEST_DESC" | escape_nix_quoted)
+	esc_nixpkgs=$(printf '%s' "$MANIFEST_NIXPKGS" | escape_nix_quoted)
+
+	packages_body >"$WORK/pkg_raw"
+	hook_body
+	escape_nix_indented <"$WORK/hook_raw" >"$WORK/hook_escaped"
+
+	{
+		cat <<NIX
+{
+  description = "$esc_desc";
+
+  inputs = {
+    nixpkgs.url = "$esc_nixpkgs";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+        };
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            $PKG_START
+NIX
+		awk '$0 == "" { print; next } { print "            " $0 }' "$WORK/pkg_raw"
+		cat <<NIX
+            $PKG_END
+          ];
+
+          shellHook = ''
+            $HOOK_START
+NIX
+		awk '$0 == "" { print; next } { print "            " $0 }' "$WORK/hook_escaped"
+		cat <<NIX
+            $HOOK_END
+          '';
+        };
+      }
+    );
+}
+NIX
+	} >"$out"
+}
+
+region_body() { # file start end -> stripped region lines on stdout
+	awk -v s="$2" -v e="$3" '
+		{
+			t = $0
+			gsub(/^[ \t]+/, "", t)
+			if (!skip && t == s) { skip = 1; next }
+			if (skip && t == e) { skip = 0; next }
+			if (skip) {
+				b = $0
+				gsub(/^[ \t]+/, "", b)
+				print b
+			}
+		}
+	' "$1"
+}
+
+replace_region() { # file start end body_file -> stdout
+	awk -v sm="$2" -v em="$3" -v bfile="$4" '
+		{
+			t = $0
+			gsub(/^[ \t]+/, "", t)
+			if (skip) {
+				if (t == em) { skip = 0; print; next }
+				next
+			}
+			if (t == sm) {
+				match($0, /^ */)
+				ind = substr($0, RSTART, RLENGTH)
+				print
+				while ((getline line < bfile) > 0) {
+					if (line == "") print ""
+					else print ind line
+				}
+				skip = 1
+				next
+			}
+			print
+		}
+	' "$1"
+}
+
+write_flake() {
+	local flake=$DIR/flake.nix
+	local changed=0
+	local final=$WORK/flake.new
+
+	packages_body >"$WORK/pkg_raw"
+	hook_body
+	NEW_PKG_HASH=$(sha256sum "$WORK/pkg_raw" | cut -d" " -f1)
+	NEW_HOOK_HASH=$(sha256sum "$WORK/hook_raw" | cut -d" " -f1)
+
+	if [[ -f $flake ]]; then
+		if ! grep -qF "$PKG_START" "$flake"; then
+			if ((FORCE)); then
+				cp "$flake" "$flake.bak"
+				echo "backed up unmanaged flake.nix to flake.nix.bak"
+				render_flake "$final"
+				changed=1
+			else
+				die "flake.nix already exists but is not mkshell-managed (no <mkshell:...> regions); re-run with --force to overwrite it (a flake.nix.bak backup will be written)"
+			fi
+		else
+			if ((!FORCE)) && [[ -n $STORED_PKG_HASH ]]; then
+				local cur_pkg cur_hook
+				cur_pkg=$(region_body "$flake" "$PKG_START" "$PKG_END" | sha256sum | cut -d" " -f1)
+				cur_hook=$(region_body "$flake" "$HOOK_START" "$HOOK_END" | sha256sum | cut -d" " -f1)
+				if [[ $cur_pkg != "$STORED_PKG_HASH" || $cur_hook != "$STORED_HOOK_HASH" ]]; then
+					die "flake.nix managed regions were edited by hand since the last mkshell write; your edits would be lost
+  move custom bits into extra_hook/extra in mkshell.conf, keep hand edits outside
+  the <mkshell:...> regions, or re-run with --force to discard them"
+				fi
+			fi
+			escape_nix_indented <"$WORK/hook_raw" >"$WORK/hook_escaped"
+			replace_region "$flake" "$PKG_START" "$PKG_END" "$WORK/pkg_raw" >"$final"
+			replace_region "$final" "$HOOK_START" "$HOOK_END" "$WORK/hook_escaped" >"$final.out"
+			mv "$final.out" "$final"
+			if cmp -s "$flake" "$final"; then
+				changed=0
+			else
+				changed=1
+			fi
+		fi
+	else
+		render_flake "$final"
+		changed=1
+	fi
+
+	mv "$final" "$flake"
+	save_manifest
+	ensure_envrc
+
+	if ((changed)) && ((NOALLOW == 0)); then
+		if command -v direnv >/dev/null 2>&1; then
+			direnv allow "$DIR" && echo "ran direnv allow"
+		fi
+	fi
+	((changed)) && return 0
+	return 1
+}
+
+ensure_envrc() {
+	local envrc="$DIR/.envrc"
+	if [[ ! -f $envrc ]]; then
+		printf 'use flake\n' >"$envrc"
+	elif ! grep -qF "use flake" "$envrc"; then
+		printf 'use flake\n' >>"$envrc"
+	fi
+}
+
+# --- summaries ---------------------------------------------------------------
+
+print_summary() {
+	local pkgs
+	pkgs=$(packages_body | paste -sd, -)
+	printf '  toolkits: %s\n' "$(join_comma "${TOOLKITS[@]}")"
+	if ((${#EXTRAS[@]} > 0)); then
+		printf '  extra packages: %s\n' "$(join_comma "${EXTRAS[@]}")"
+	fi
+	printf '  packages: %s\n' "$pkgs"
+	echo "  caches and tool state: ./.local-nix-env (add it to .gitignore)"
+}
+
+toolkit_summary() {
+	local name=$1
+	local req_note=""
+	read -ra req_list <<<"${TOOL_REQ[$name]:-}"
+	if ((${#req_list[@]} > 0)); then
+		req_note=" (requires ${req_list[*]})"
+	fi
+	printf '%s [%s] %s%s\n' "$name" "${TOOL_CAT[$name]}" "${TOOL_PKGS[$name]}" "$req_note"
+}
+
+# --- commands ----------------------------------------------------------------
+
+cmd_init() {
+	if manifest_exists; then
+		die "this directory already has a mkshell.conf; use '$PROG add'/'$PROG remove'/'$PROG sync' instead"
+	fi
+	MANIFEST_DESC=$DEFAULT_DESC
+	MANIFEST_NIXPKGS=$DEFAULT_NIXPKGS
+	STORED_PKG_HASH=""
+	STORED_HOOK_HASH=""
+	TOOLKITS=()
+	EXTRAS=()
+	if [[ -n $INIT_TOOLKITS ]]; then
+		IFS=, read -ra TOOLKITS <<<"$INIT_TOOLKITS"
+	fi
+	if ((${#TOOLKITS[@]} == 0)); then
+		die "specify --toolkits (available: $(available_list))"
+	fi
+	local t
+	for t in "${TOOLKITS[@]}"; do
+		is_toolkit "$t" || die "unknown toolkit '$t' (available: $(available_list))"
+	done
+	if [[ -n $INIT_EXTRA ]]; then
+		IFS=, read -ra EXTRAS <<<"$INIT_EXTRA"
+	fi
+	[[ -n $INIT_DESC ]] && MANIFEST_DESC=$INIT_DESC
+	[[ -n $INIT_NIXPKGS ]] && MANIFEST_NIXPKGS=$INIT_NIXPKGS
+	resolve_requires
+	if write_flake; then
+		echo "initialized mkshell environment in $(cd "$DIR" && pwd)"
+		print_summary
+	fi
+}
+
+cmd_add() {
+	manifest_exists || die "no $(manifest_path); run '$PROG init' first"
+	load_manifest
+	if ((${#POSITIONAL[@]} == 0)); then
+		echo "specify what to add, e.g. '$PROG add rust ripgrep'"
+		echo "toolkits: $(available_list)"
+		return 0
+	fi
+	local -a added_tk=() added_extra=()
+	local name
+	for name in "${POSITIONAL[@]}"; do
+		if is_toolkit "$name"; then
+			if [[ " ${TOOLKITS[*]} " == *" $name "* ]]; then
+				echo "toolkit $name already present"
+			else
+				TOOLKITS+=("$name")
+				added_tk+=("$name")
+			fi
+			continue
+		fi
+		if [[ " ${EXTRAS[*]} " == *" $name "* || " ${TOOLKITS[*]} " == *" $name "* ]]; then
+			echo "$name already present"
+		else
+			EXTRAS+=("$name")
+			added_extra+=("$name")
+		fi
+	done
+	resolve_requires
+	if ((${#added_tk[@]} == 0 && ${#added_extra[@]} == 0)); then
+		echo "no changes"
+		return 0
+	fi
+	write_flake || true
+	if ((${#added_tk[@]} > 0)); then
+		printf 'added toolkits: %s\n' "$(join_comma "${added_tk[@]}")"
+	fi
+	if ((${#added_extra[@]} > 0)); then
+		printf 'added extra packages: %s\n' "$(join_comma "${added_extra[@]}")"
+	fi
+}
+
+cmd_remove() {
+	manifest_exists || die "no $(manifest_path); run '$PROG init' first"
+	load_manifest
+	if ((${#POSITIONAL[@]} == 0)); then
+		echo "specify what to remove, e.g. '$PROG remove rust ripgrep'"
+		echo "current toolkits: $(join_comma "${TOOLKITS[@]}"), extras: $(join_comma "${EXTRAS[@]}")"
+		return 0
+	fi
+	local -a removed_tk=() removed_extra=()
+	local name
+	for name in "${POSITIONAL[@]}"; do
+		if [[ " ${TOOLKITS[*]} " == *" $name "* ]]; then
+			removed_tk+=("$name")
+		elif [[ " ${EXTRAS[*]} " == *" $name "* ]]; then
+			removed_extra+=("$name")
+		else
+			echo "nothing to remove for '$name'"
+		fi
+	done
+	local changed=0
+	if ((${#removed_tk[@]} > 0)); then
+		# remove anything still requiring a removed toolkit, transitively
+		prune_dependents "${removed_tk[@]}"
+		changed=1
+	fi
+	if ((${#removed_extra[@]} > 0)); then
+		local -a keep_extra=()
+		local e
+		for e in "${EXTRAS[@]}"; do
+			if [[ " ${removed_extra[*]} " == *" $e "* ]]; then
+				continue
+			fi
+			keep_extra+=("$e")
+		done
+		EXTRAS=("${keep_extra[@]}")
+		changed=1
+	fi
+	if ((changed == 0)); then
+		echo "no changes"
+		return 0
+	fi
+	write_flake || true
+	if ((${#removed_tk[@]} > 0)); then
+		printf 'removed toolkits: %s\n' "$(join_comma "${removed_tk[@]}")"
+	fi
+	if ((${#removed_extra[@]} > 0)); then
+		printf 'removed extra packages: %s\n' "$(join_comma "${removed_extra[@]}")"
+	fi
+}
+
+cmd_list() {
+	manifest_exists || die "no mkshell.conf in $DIR; run '$PROG init' first"
+	load_manifest
+	local t
+	echo "description: $MANIFEST_DESC"
+	echo "nixpkgs:     $MANIFEST_NIXPKGS"
+	echo "toolkits:"
+	if ((${#TOOLKITS[@]} == 0)); then
+		echo "  (none)"
+	fi
+	for t in $(ordered_toolkits); do
+		printf '  %s\n' "$(toolkit_summary "$t")"
+		printf '    packages: %s\n' "${TOOL_PKGS[$t]}"
+	done
+	if ((${#EXTRAS[@]} > 0)); then
+		printf 'extra packages: %s\n' "$(join_comma "${EXTRAS[@]}")"
+	fi
+	echo "packages:  $(packages_body | paste -sd, -)"
+	if [[ -f $DIR/flake.nix ]]; then
+		if grep -qF "$PKG_START" "$DIR/flake.nix"; then
+			echo "flake.nix: mkshell-managed"
+		else
+			echo "flake.nix: present but not mkshell-managed"
+		fi
+	else
+		echo "flake.nix: missing; run '$PROG sync' to generate it"
+	fi
+}
+
+cmd_sync() {
+	manifest_exists || die "no mkshell.conf; run '$PROG init' first"
+	load_manifest
+	resolve_requires
+	if write_flake; then
+		echo "flake.nix updated from mkshell.conf"
+	else
+		echo "flake.nix already up to date"
+	fi
+}
+
+# --- argument parsing --------------------------------------------------------
+
+usage() {
+	cat <<EOF
+usage: $PROG [-d DIR] [--force] [--no-allow] <command> [args]
+
+commands:
+  init      initialize a new environment (--toolkits, --extra,
+            --description, --nixpkgs)
+  add       add toolkits; unknown names are added as extra nixpkgs packages
+  remove    remove toolkits/extras (also removes dependents)
+  list      show the current environment and available toolkits
+  sync      regenerate the managed regions of flake.nix from mkshell.conf
+
+options:
+  -d, --dir DIR   operate on DIR (default: current working directory)
+      --force     overwrite hand edits inside managed regions / unmanaged flake
+      --no-allow  do not run 'direnv allow' after writing
+  -h, --help      show this help
+
+toolkits: $(available_list)
+EOF
+}
+
+parse_args() {
+	while (($#)); do
+		case $1 in
+		-d | --dir)
+			[[ $# -ge 2 ]] || die "$1 requires an argument"
+			DIR=$2
+			shift 2
+			;;
+		--dir=*)
+			DIR=${1#*=}
+			shift
+			;;
+		--force)
+			FORCE=1
+			shift
+			;;
+		--no-allow)
+			NOALLOW=1
+			shift
+			;;
+		--toolkits)
+			INIT_TOOLKITS=$2
+			shift 2
+			;;
+		--extra)
+			INIT_EXTRA=$2
+			shift 2
+			;;
+		--description)
+			INIT_DESC=$2
+			shift 2
+			;;
+		--nixpkgs)
+			INIT_NIXPKGS=$2
+			shift 2
+			;;
+		-h | --help | help)
+			usage
+			exit 0
+			;;
+		-*)
+			die "unknown option $1 (see '$PROG --help')"
+			;;
+		*)
+			POSITIONAL+=("$1")
+			shift
+			;;
+		esac
+	done
+}
+
+main() {
+	parse_args "$@"
+	local cmd=""
+	if ((${#POSITIONAL[@]} > 0)); then
+		cmd=${POSITIONAL[0]}
+		POSITIONAL=("${POSITIONAL[@]:1}")
+	fi
+	case $cmd in
+	init)
+		cmd_init
+		;;
+	add)
+		cmd_add
+		;;
+	remove)
+		cmd_remove
+		;;
+	list)
+		cmd_list
+		;;
+	sync)
+		cmd_sync
+		;;
+	"")
+		if manifest_exists; then
+			cmd_list
+		else
+			usage >&2
+			exit 1
+		fi
+		;;
+	*)
+		die "unknown command '$cmd' (see '$PROG --help')"
+		;;
+	esac
+}
+
+main "$@"
