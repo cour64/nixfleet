@@ -59,6 +59,11 @@
       alsa.support32Bit = true;
       pulse.enable = true;
     };
+
+    hardware.bluetooth.enable = true;
+    hardware.bluetooth.settings.General.AlwaysPairable = true;
+
+    services.blueman.enable = true;
   };
 
   flake.modules.homeManager.hyprland =
