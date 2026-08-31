@@ -14,6 +14,8 @@
       packages
       zsh
       onepassword
+      keyring
+      docker
       brendan
     ]);
 

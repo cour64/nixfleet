@@ -47,6 +47,7 @@ in
           "networkmanager"
           "video"
           "input"
+          "docker"
         ];
         home = "/home/${username}";
         description = username;
