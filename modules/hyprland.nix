@@ -64,6 +64,8 @@
     hardware.bluetooth.settings.General.AlwaysPairable = true;
 
     services.blueman.enable = true;
+
+    programs.thunar.enable = true;
   };
 
   flake.modules.homeManager.hyprland =

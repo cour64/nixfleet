@@ -61,6 +61,7 @@ in
         users.${username}.imports = with self.modules.homeManager; [
           brendan
           hyprland
+          kanshi
           firefox
           opencode
         ];

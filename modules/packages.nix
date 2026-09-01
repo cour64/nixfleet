@@ -22,6 +22,7 @@ in
           wget
           curl
           jq
+          _7zz
           # Not backported to 26.05; merged into unstable on 2026-08-25.
           unstable.tuicr
         ]
