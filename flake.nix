@@ -24,6 +24,9 @@
     herdr.url = "github:herdrdev/herdr/v0.8.2";
     herdr.inputs.nixpkgs.follows = "nixpkgs";
 
+    # OMP coding agent (omp.sh); module owns ~/.omp/agent/config.yml.
+    omp.url = "github:can1357/oh-my-pi";
+
     # Pins the Rust toolchain herdr's rust-toolchain.toml requests.
     rust-overlay.url = "github:oxalica/rust-overlay";
     rust-overlay.inputs.nixpkgs.follows = "nixpkgs";

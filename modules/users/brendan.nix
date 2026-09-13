@@ -64,6 +64,7 @@ in
           kanshi
           firefox
           opencode
+          omp
         ];
       };
     };

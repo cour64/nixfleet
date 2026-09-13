@@ -1,72 +1,118 @@
 { self, inputs, ... }:
 {
-  flake.modules.nixos.hyprland = {
-    imports = [
-      inputs.noctalia.nixosModules.default
-      inputs.noctalia-greeter.nixosModules.default
-      self.modules.nixos.nvidia
-    ];
+  flake.modules.nixos.hyprland =
+    let
+      # Not-restart-on-switch markers for uwsm's session units.
+      # restartIfChanged=false is emitted as X-RestartIfChanged=false into the
+      # [Service] section; targets and slices need the directive set
+      # explicitly via unitConfig.
+      uwsmService = {
+        restartIfChanged = false;
+        overrideStrategy = "asDropin";
+      };
+      uwsmUnit = {
+        overrideStrategy = "asDropin";
+        unitConfig."X-RestartIfChanged" = "no";
+      };
+    in
+    {
+      imports = [
+        inputs.noctalia.nixosModules.default
+        inputs.noctalia-greeter.nixosModules.default
+        self.modules.nixos.nvidia
+      ];
 
-    # Do not use the upstream overlays: they callPackage against this flake's
-    # nixpkgs and miss Cachix. Alias the packages CI actually built.
-    nixpkgs.overlays = [
-      (_final: prev: {
-        noctalia = inputs.noctalia.packages.${prev.stdenv.hostPlatform.system}.default;
-        noctalia-greeter = inputs.noctalia-greeter.packages.${prev.stdenv.hostPlatform.system}.default;
-      })
-    ];
+      # Do not use the upstream overlays: they callPackage against this flake's
+      # nixpkgs and miss Cachix. Alias the packages CI actually built.
+      nixpkgs.overlays = [
+        (_final: prev: {
+          noctalia = inputs.noctalia.packages.${prev.stdenv.hostPlatform.system}.default;
+          noctalia-greeter = inputs.noctalia-greeter.packages.${prev.stdenv.hostPlatform.system}.default;
+        })
+      ];
 
-    programs.hyprland = {
-      enable = true;
-      withUWSM = true;
-      xwayland.enable = true;
-    };
+      programs.hyprland = {
+        enable = true;
+        withUWSM = true;
+        xwayland.enable = true;
+      };
 
-    programs.noctalia = {
-      enable = true;
-      recommendedServices.enable = true;
-    };
+      # switch-to-configuration-ng restarts package-shipped user units whose
+      # store path changed (e.g. uwsm after a nixpkgs update). Stopping
+      # wayland-session-bindpid@.service fires its OnSuccess= -> session
+      # shutdown, tearing the whole Hyprland session down mid-switch; the
+      # rebuild's terminal dies with it and switch-to-configuration aborts
+      # (exit 101), leaving the switch half-applied. Same root cause as nixpkgs
+      # PR #536457 (GNOME): mark uwsm's session units as not-restart-on-switch.
+      # Drop-ins overlay the package's own units, so they stay intact.
+      systemd.user.services = {
+        "wayland-session-bindpid@.service" = uwsmService;
+        "wayland-wm@.service" = uwsmService;
+        "wayland-wm-env@.service" = uwsmService;
+        "wayland-wm-app-daemon.service" = uwsmService;
+        "wayland-session-waitenv.service" = uwsmService;
+        "fumon.service" = uwsmService;
+      };
 
-    programs.noctalia-greeter = {
-      enable = true;
-      settings = {
-        session.default = "Hyprland (uwsm-managed)";
-        user.default = "brendan";
-        keyboard.layout = "gb";
-        appearance = {
-          scheme = "Tokyo-Night";
-          theme_mode = "dark";
-          font_family = "Inter";
+      systemd.user.targets = {
+        "wayland-session@.target" = uwsmUnit;
+        "wayland-session-pre@.target" = uwsmUnit;
+        "wayland-session-envelope@.target" = uwsmUnit;
+        "wayland-session-xdg-autostart@.target" = uwsmUnit;
+        "wayland-session-shutdown.target" = uwsmUnit;
+      };
+
+      systemd.user.slices = {
+        "session-graphical.slice" = uwsmUnit;
+        "app-graphical.slice" = uwsmUnit;
+        "background-graphical.slice" = uwsmUnit;
+      };
+
+      programs.noctalia = {
+        enable = true;
+        recommendedServices.enable = true;
+      };
+
+      programs.noctalia-greeter = {
+        enable = true;
+        settings = {
+          session.default = "Hyprland (uwsm-managed)";
+          user.default = "brendan";
+          keyboard.layout = "gb";
+          appearance = {
+            scheme = "Tokyo-Night";
+            theme_mode = "dark";
+            font_family = "Inter";
+          };
         };
       };
+
+      nix.settings = {
+        extra-substituters = [ "https://noctalia.cachix.org" ];
+        extra-trusted-public-keys = [
+          "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
+        ];
+      };
+
+      environment.sessionVariables.NIXOS_OZONE_WL = "1";
+
+      security.polkit.enable = true;
+      security.rtkit.enable = true;
+
+      services.pipewire = {
+        enable = true;
+        alsa.enable = true;
+        alsa.support32Bit = true;
+        pulse.enable = true;
+      };
+
+      hardware.bluetooth.enable = true;
+      hardware.bluetooth.settings.General.AlwaysPairable = true;
+
+      services.blueman.enable = true;
+
+      programs.thunar.enable = true;
     };
-
-    nix.settings = {
-      extra-substituters = [ "https://noctalia.cachix.org" ];
-      extra-trusted-public-keys = [
-        "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
-      ];
-    };
-
-    environment.sessionVariables.NIXOS_OZONE_WL = "1";
-
-    security.polkit.enable = true;
-    security.rtkit.enable = true;
-
-    services.pipewire = {
-      enable = true;
-      alsa.enable = true;
-      alsa.support32Bit = true;
-      pulse.enable = true;
-    };
-
-    hardware.bluetooth.enable = true;
-    hardware.bluetooth.settings.General.AlwaysPairable = true;
-
-    services.blueman.enable = true;
-
-    programs.thunar.enable = true;
-  };
 
   flake.modules.homeManager.hyprland =
     { pkgs, ... }:

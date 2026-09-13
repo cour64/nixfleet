@@ -13,7 +13,7 @@
           # against the narrow Latin glyphs. Term metrics and Mono cell width
           # keep powerline/prompt icons aligned.
           font-family = "IosevkaTerm Nerd Font Mono";
-          font-size = 14;
+          font-size = 12;
           shell-integration = "zsh";
           command = "${pkgs.zsh}/bin/zsh";
         };
