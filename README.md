@@ -86,8 +86,8 @@ login screen is the Noctalia greeter; it starts the UWSM Hyprland session
 by default. The Legion is AMD iGPU + RTX 3070 Ti (PRIME offload): Hyprland
 runs on AMD, and `nvidia-offload <app>` uses the NVIDIA GPU. Confirm
 `amdgpuBusId` with `lspci -d ::03xx` if you have more than one NVMe drive
-(often `PCI:6:0:0`). Firefox (with uBlock Origin and 1Password), Steam, and
-OpenCode are NixOS-only. For NVIDIA games, `nvidia-offload steam` or a Steam
+(often `PCI:6:0:0`). Firefox (with uBlock Origin and 1Password) and Steam are
+NixOS-only. For NVIDIA games, `nvidia-offload steam` or a Steam
 launch option.
 
 `Super+Return` opens Ghostty. `Super+Space` opens the Noctalia launcher.
@@ -122,15 +122,57 @@ One-time manual step after the first install:
 2. Settings → Developer
 3. Enable **Use the SSH agent**
 
-## OpenCode
+## pi
 
-NixOS Home Manager installs OpenCode with OpenRouter as the default provider.
+Home Manager installs the pi coding agent (`modules/pi.nix`) from
+nixpkgs-unstable, which tracks upstream much closer than the stable release.
 The API key is not in the flake. After rebuild:
 
-1. Create a key at [openrouter.ai/keys](https://openrouter.ai/settings/keys)
-2. In a project directory: `opencode` then `/connect`, choose OpenRouter, paste
-   the key (stored in `~/.local/share/opencode/auth.json`)
-3. `/models` to pick a model
+1. Run `pi` and add an OpenRouter key when prompted (stored by pi in
+   `~/.pi/agent/auth.json`, which is deliberately unmanaged)
+2. `/model` to pick a model
 
-Do not use the upstream install script; the package comes from Nixpkgs and
-`autoupdate` is off.
+### How pi is managed
+
+- **Binary**: `pkgs.unstable.pi-coding-agent` in `home.packages`. Nix owns the
+  binary; do not run an upstream install script.
+- **settings.json**: pi rewrites this file itself (`pi config`, theme changes,
+  `pi install`), so the module installs a tracked copy via a home-manager
+  activation instead of a store symlink — declarative at rebuild time, mutable
+  in between. Anything pi wrote since the last rebuild is reset on switch.
+- **Packages/extensions**: declared in `piPackages` in `modules/pi.nix` and
+  pinned there so `pi update --extensions` doesn't move them. pi keeps its
+  own materialized state under `~/.pi/agent` (outside the store); a
+  home-manager activation runs `pi install` for any package that is missing
+  or at the wrong version, so a rebuild converges automatically (network is
+  only touched when something actually changed). To bump: edit the version
+  and rebuild.
+- **Skills**: installed declaratively as store symlinks under
+  `~/.pi/agent/skills/` (pi only reads them). `modules/pi/skills/nixfleet/`
+  ships the `nixfleet` skill, which makes pi do all configuration in this
+  flake instead of editing local files.
+- **Flake updates**: `nix flake update` bumps the nixpkgs pin and therefore
+  the pi version; pi's own self-update is not used.
+- **Extensions/packages** installed so far: `pi-web-access` (web search and
+  fetching), `pi-lens` (LSP/lint feedback), `pi-subagents`,
+  `@ff-labs/pi-fff` (embedded fff search engine), `pi-boomerang`
+  (autonomous subtasks), and `ponytail` (skills, pinned to a git tag).
+
+## Caveman
+
+[Caveman](https://github.com/JuliusBrussee/caveman) shrinks tool output and
+other token noise before the provider sees it. pi integrates through the
+official `npm:@caveman-ai/pi` package (see the pi `packages` in
+`modules/pi/agent/settings.json`). The npm CLI is only a JS front-end; the
+Go runtime binaries are managed by upstream's own signed installer, not Nix:
+`modules/caveman.nix` packages just the `@caveman-ai/cli` bundle, and
+`caveman setup --install` (run once after install/bump) downloads the
+release the CLI pins into `~/.caveman/bin` — signature + sha256 verified,
+idempotent. After bumping `cliVersion`: rebuild, then run
+`caveman setup --install` once. Missing binaries degrade loudly to
+pass-through and `caveman setup` gates non-zero, so a stale install is
+visible. The old generated `extensions/caveman-native.js` route (`caveman
+enable pi`) was retired; remove it with `caveman disable pi` if it ever
+reappears. Caveman's own config lives in `~/.caveman-cloud/config.json` and
+is unmanaged (the compat mounts for OpenRouter are declared as
+`~/.caveman/caveman.yaml` in the module).

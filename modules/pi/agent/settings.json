@@ -1,0 +1,14 @@
+{
+  "defaultModel": "z-ai/glm-5.3-flash",
+  "defaultProvider": "openrouter",
+  "packages": [
+    "npm:pi-subagents",
+    "npm:pi-web-access",
+    "npm:pi-lens",
+    "npm:@dietrichgebert/ponytail",
+    "npm:@ff-labs/pi-fff",
+    "git:github.com/ayghri/i-have-adhd@839872f9d1cd634fed642b4589ce7226199cc15f"
+  ],
+  "theme": "dark",
+  "lastChangelogVersion": "0.87.1"
+}

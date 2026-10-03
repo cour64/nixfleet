@@ -27,6 +27,14 @@
     boot.loader.efi.canTouchEfiVariables = true;
 
     networking.hostName = "legion";
+    # Kiff dev stack (docker compose): Caddy TLS endpoints resolve to loopback.
+    # The web origin is a real domain (ilow.stream) because the atproto PDS
+    # rejects OAuth client_ids whose TLD is a local one (.test/.local/…).
+    # pds.test stays: the PDS issuer was never affected, and moving it would
+    # invalidate every dev account.
+    networking.hosts = {
+      "127.0.0.1" = [ "kiff.ilow.stream" "pds.test" ];
+    };
     networking.networkmanager.enable = true;
 
     time.timeZone = "Europe/London";

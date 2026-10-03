@@ -63,8 +63,7 @@ in
           hyprland
           kanshi
           firefox
-          opencode
-          omp
+          nodejs
         ];
       };
     };
@@ -86,6 +85,7 @@ in
         direnv
         mkshell
         onepassword
+        self.modules.homeManager.pi
       ];
 
       home.username = username;

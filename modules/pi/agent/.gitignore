@@ -1,0 +1,11 @@
+# Mutable pi state, materialized at runtime. Everything not listed here
+# (settings.json, skills/, keybindings.json, models.json, ...) is config:
+# pi's writes land here directly, so commit them to keep them.
+/auth.json
+/models-store.json
+/sessions/
+/npm/
+/git/
+/extensions/
+/fff/
+/trust.json

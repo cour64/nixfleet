@@ -45,21 +45,24 @@
       # (exit 101), leaving the switch half-applied. Same root cause as nixpkgs
       # PR #536457 (GNOME): mark uwsm's session units as not-restart-on-switch.
       # Drop-ins overlay the package's own units, so they stay intact.
+      # NOTE: NixOS appends .service/.target to the attribute name, so template
+      # names must NOT include the suffix — "wayland-wm@.service" produced a
+      # drop-in under wayland-wm@.service.service.d/, which nothing loads.
       systemd.user.services = {
-        "wayland-session-bindpid@.service" = uwsmService;
-        "wayland-wm@.service" = uwsmService;
-        "wayland-wm-env@.service" = uwsmService;
-        "wayland-wm-app-daemon.service" = uwsmService;
-        "wayland-session-waitenv.service" = uwsmService;
-        "fumon.service" = uwsmService;
+        "wayland-session-bindpid@" = uwsmService;
+        "wayland-wm@" = uwsmService;
+        "wayland-wm-env@" = uwsmService;
+        "wayland-wm-app-daemon" = uwsmService;
+        "wayland-session-waitenv" = uwsmService;
+        fumon = uwsmService;
       };
 
       systemd.user.targets = {
-        "wayland-session@.target" = uwsmUnit;
-        "wayland-session-pre@.target" = uwsmUnit;
-        "wayland-session-envelope@.target" = uwsmUnit;
-        "wayland-session-xdg-autostart@.target" = uwsmUnit;
-        "wayland-session-shutdown.target" = uwsmUnit;
+        "wayland-session@" = uwsmUnit;
+        "wayland-session-pre@" = uwsmUnit;
+        "wayland-session-envelope@" = uwsmUnit;
+        "wayland-session-xdg-autostart@" = uwsmUnit;
+        "wayland-session-shutdown" = uwsmUnit;
       };
 
       systemd.user.slices = {
