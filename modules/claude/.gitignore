@@ -1,0 +1,10 @@
+# Runtime state Claude Code writes; config files (settings.json, keybindings,
+# skills/, agents/, commands/) are config — commit them to keep them.
+/projects/
+/todos/
+/statsig/
+/shell-snapshots/
+/session-env/
+/plugins/
+/history.jsonl
+/.credentials.json

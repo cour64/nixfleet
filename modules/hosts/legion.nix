@@ -4,7 +4,9 @@
     modules = [ self.modules.nixos.legion ];
   };
 
-  flake.modules.nixos.legion = {
+  flake.modules.nixos.legion =
+    { pkgs, ... }:
+    {
     imports = [
       ./_legion/hardware.nix
     ]
@@ -59,5 +61,8 @@
     console.keyMap = "uk";
 
     services.openssh.enable = true;
+
+    # Claude Code CLI; unstable tracks upstream releases much closer than 26.05.
+    environment.systemPackages = [ pkgs.unstable.claude-code ];
   };
 }

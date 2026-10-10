@@ -85,6 +85,7 @@ in
         direnv
         mkshell
         onepassword
+        claude
         self.modules.homeManager.pi
       ];
 

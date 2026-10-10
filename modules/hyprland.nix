@@ -1,6 +1,7 @@
 { self, inputs, ... }:
 {
   flake.modules.nixos.hyprland =
+    { lib, pkgs, ... }:
     let
       # Not-restart-on-switch markers for uwsm's session units.
       # restartIfChanged=false is emitted as X-RestartIfChanged=false into the
@@ -50,7 +51,23 @@
       # drop-in under wayland-wm@.service.service.d/, which nothing loads.
       systemd.user.services = {
         "wayland-session-bindpid@" = uwsmService;
-        "wayland-wm@" = uwsmService;
+        "wayland-wm@" = uwsmService // {
+          # uwsm's default service PATH is only coreutils/findutils/grep/sed/
+          # systemd, but Hyprland's start-hyprland watchdog execvp()s
+          # "Hyprland" by bare name. Without its bin dir on PATH the session
+          # dies at login ("fork(): execvp failed: No such file or
+          # directory"), the greeter falls back to a non-systemd launch, and
+          # everything keyed to graphical-session.target (kanshi, portals)
+          # never starts.
+          # The rest mirrors /etc/set-environment's PATH: every command
+          # Hyprland execs (terminal keybinds, app launchers) inherits this
+          # PATH, and home-manager installs (ghostty, pi) live in the
+          # per-user profile, not /run/current-system/sw/bin — without those
+          # dirs the uwsm session can't find any user commands. systemd does
+          # not expand $HOME/%h in Environment=, so the paths are literal.
+          environment.PATH = lib.mkForce (lib.makeBinPath [ pkgs.hyprland ]
+            + ":/run/wrappers/bin:/home/brendan/.nix-profile/bin:/home/brendan/.local/state/nix/profile/bin:/etc/profiles/per-user/brendan/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin");
+        };
         "wayland-wm-env@" = uwsmService;
         "wayland-wm-app-daemon" = uwsmService;
         "wayland-session-waitenv" = uwsmService;
@@ -76,7 +93,7 @@
         recommendedServices.enable = true;
       };
 
-      programs.noctalia-greeter = {
+      services.displayManager.noctalia-greeter = {
         enable = true;
         settings = {
           session.default = "Hyprland (uwsm-managed)";

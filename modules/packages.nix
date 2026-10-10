@@ -40,6 +40,10 @@ in
           # pi-lens nix LSP server (edit tooling in nixfleet modules).
           nixd
         ]
+        ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+          # arandr equivalent for Wayland.
+          wdisplays
+        ]
         ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
           gum
           hostctl
